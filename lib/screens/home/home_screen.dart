@@ -116,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               SizedBox(height: 4),
               Text(
-                "Minh Nhật",
+                "Tiến Dũng",
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: const Center(
               child: Text(
-                "MN",
+                "TD",
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
