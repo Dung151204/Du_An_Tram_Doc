@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 import 'manual_add_screen.dart';
 import 'qr_scan_screen.dart';
+import 'search_book_screen.dart';
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -35,7 +36,9 @@ class AddBookSheet extends StatelessWidget {
 
               // Nút Tìm kiếm
               _buildBtn(context, LucideIcons.search, "Tìm kiếm", Colors.blue.shade100.withOpacity(0.5), Colors.blue, () {
-                print("Bam nut Tim kiem");
+                Navigator.pop(context); // Đóng menu
+                // Chuyển sang màn hình Tìm kiếm
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchBookScreen()));
               }),
             ],
           ),
