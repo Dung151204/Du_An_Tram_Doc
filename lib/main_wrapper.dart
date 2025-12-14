@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/review/review_screen.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -16,7 +17,7 @@ class _MainWrapperState extends State<MainWrapper> {
   // Danh sách các màn hình (Placeholder)
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))),
+    const ReviewScreen(), // <--- Thay bằng dòng này nhé!
     const Scaffold(body: Center(child: Text("Màn hình Cộng đồng"))),
     const Scaffold(body: Center(child: Text("Màn hình Hồ sơ"))),
   ];

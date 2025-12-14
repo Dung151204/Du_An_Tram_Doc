@@ -91,7 +91,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               )
                   : null,
             ),
-            const SizedBox(height: 30), // Bottom padding
+            const SizedBox(height: 130), // Bottom padding
           ],
         ),
       ),
