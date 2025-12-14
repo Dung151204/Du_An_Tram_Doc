@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 
+
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 400,
+      height: 420,
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -16,6 +17,7 @@ class AddBookSheet extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Thanh nắm kéo
           Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 24),
           const Text("Thêm sách mới", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark)),
@@ -23,27 +25,39 @@ class AddBookSheet extends StatelessWidget {
 
           Row(
             children: [
-              // Nút Quét mã (Chưa có lệnh chuyển trang)
-              _buildBtn(context, LucideIcons.scanLine, "Quét mã", Colors.amber.shade50, Colors.amber, () {}),
+              // Nút Quét mã
+              _buildBtn(context, LucideIcons.scanLine, "Quét mã", Colors.amber.shade100.withOpacity(0.5), Colors.orange, () {
+                // Tạm thời chưa chuyển trang để tránh lỗi
+                print("Bam nut Quet ma");
+              }),
               const SizedBox(width: 16),
-              // Nút Tìm kiếm (Chưa có lệnh chuyển trang)
-              _buildBtn(context, LucideIcons.search, "Tìm kiếm", Colors.blue.shade50, Colors.blue, () {}),
+
+              // Nút Tìm kiếm
+              _buildBtn(context, LucideIcons.search, "Tìm kiếm", Colors.blue.shade100.withOpacity(0.5), Colors.blue, () {
+                print("Bam nut Tim kiem");
+              }),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Nút Nhập thủ công (Chưa có lệnh chuyển trang)
+          // Nút Nhập thủ công
           GestureDetector(
-            onTap: () {},
+            onTap: () {
+              print("Bam nut Nhap thu cong");
+            },
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(20)
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  Icon(LucideIcons.edit3, size: 20, color: AppColors.textGrey),
-                  SizedBox(width: 8),
-                  Text("Nhập thủ công", style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textGrey)),
+                  Icon(LucideIcons.edit3, size: 20, color: AppColors.textDark),
+                  SizedBox(width: 10),
+                  Text("Nhập thủ công", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                 ],
               ),
             ),
@@ -53,19 +67,26 @@ class AddBookSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildBtn(BuildContext context, IconData icon, String label, Color bg, Color color, VoidCallback onPress) {
+  Widget _buildBtn(BuildContext context, IconData icon, String label, Color bg, Color iconColor, VoidCallback onPress) {
     return Expanded(
       child: GestureDetector(
         onTap: onPress,
         child: Container(
-          height: 120,
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(24)),
+          height: 130,
+          decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(24)
+          ),
           child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: Icon(icon, color: color)),
-                const SizedBox(height: 12),
-                Text(label, style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+                Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: Icon(icon, color: iconColor, size: 28)
+                ),
+                const SizedBox(height: 16),
+                Text(label, style: const TextStyle(color: AppColors.textDark, fontSize: 14, fontWeight: FontWeight.bold)),
               ]
           ),
         ),
