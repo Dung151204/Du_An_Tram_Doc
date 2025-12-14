@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 import 'manual_add_screen.dart';
+import 'qr_scan_screen.dart';
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -25,10 +26,10 @@ class AddBookSheet extends StatelessWidget {
 
           Row(
             children: [
-              // Nút Quét mã
               _buildBtn(context, LucideIcons.scanLine, "Quét mã", Colors.amber.shade100.withOpacity(0.5), Colors.orange, () {
-                // Tạm thời chưa chuyển trang để tránh lỗi
-                print("Bam nut Quet ma");
+                Navigator.pop(context); // 1. Đóng cái menu lại trước
+                // 2. Mở màn hình Quét QR lên
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScanScreen()));
               }),
               const SizedBox(width: 16),
 
