@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/add_book/add_book_sheet.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -57,7 +58,12 @@ class _MainWrapperState extends State<MainWrapper> {
                   // Nút (+) Lồi lên ở giữa
                   GestureDetector(
                     onTap: () {
-                      print("Bấm nút Thêm");
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const AddBookSheet(),
+                      );
                     },
                     child: Container(
                       width: 56,
