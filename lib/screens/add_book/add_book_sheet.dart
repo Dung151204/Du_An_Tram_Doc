@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
-
+import 'manual_add_screen.dart';
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -41,10 +41,14 @@ class AddBookSheet extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Nút Nhập thủ công
+          // ...
           GestureDetector(
             onTap: () {
-              print("Bam nut Nhap thu cong");
+              Navigator.pop(context); // Đóng menu
+              // Chuyển sang màn hình mới
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualAddScreen()));
             },
+// ...
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
