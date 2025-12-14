@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
+import 'book_detail_screen.dart'; // Đảm bảo bạn đã tạo file này cùng thư mục
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,21 +14,23 @@ class _HomeScreenState extends State<HomeScreen> {
   // Biến để theo dõi Tab đang chọn (Mặc định là 'reading')
   String _currentTab = 'reading';
 
-  // Dữ liệu giả lập (Sau này sẽ lấy từ Firebase)
+  // Dữ liệu giả lập
   final List<Map<String, dynamic>> _books = [
     {
-      "title": "Tư duy nhanh và chậm",
-      "author": "Daniel Kahneman",
-      "progress": 65,
-      "total": 400,
-      "color": Colors.amber.shade700, // Màu bìa giả lập
+      "title": "Nhà Giả Kim",
+      "author": "Paulo Coelho",
+      "progress": 65,  // Số trang đã đọc
+      "total": 115,    // Tổng số trang
+      "image": "assets/images/nha_gia_kim.jpg",
+      "streak": 5,
     },
     {
-      "title": "Deep Work",
-      "author": "Cal Newport",
-      "progress": 120,
-      "total": 300,
-      "color": Colors.yellow.shade800,
+      "title": "Đắc Nhân Tâm",
+      "author": "Dale Carnegie",
+      "progress": 98,
+      "total": 211,
+      "image": "assets/images/dac_nhan_tam.jpg",
+      "streak": 5,
     },
   ];
 
@@ -94,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- CÁC WIDGET CON (Tách ra cho gọn code) ---
+  // --- CÁC WIDGET CON ---
 
   Widget _buildHeader() {
     return Padding(
@@ -165,7 +168,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          // Nút Đang đọc
           Expanded(
             child: GestureDetector(
               onTap: () => setState(() => _currentTab = 'reading'),
@@ -188,7 +190,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Nút Khám phá
           Expanded(
             child: GestureDetector(
               onTap: () => setState(() => _currentTab = 'discovery'),
@@ -216,117 +217,152 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --- CẬP NHẬT: Thêm tính năng bấm vào sách để chuyển màn hình ---
   Widget _buildBookCard(Map<String, dynamic> book) {
     double progressPercent = book['progress'] / book['total'];
+    int percentDisplay = (progressPercent * 100).toInt();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    // Bọc toàn bộ Card trong GestureDetector để bắt sự kiện Tap
+    return GestureDetector(
+      onTap: () {
+        // Chuyển sang màn hình Chi tiết sách (BookDetailScreen)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BookDetailScreen(book: book),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Ảnh bìa (Giả lập bằng màu)
-          Container(
-            width: 70,
-            height: 100,
-            decoration: BoxDecoration(
-              color: book['color'],
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: (book['color'] as Color).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            child: const Center(
-              child: Icon(LucideIcons.book, color: Colors.white24, size: 30),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Thông tin sách
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- PHẦN 1: ẢNH BÌA & BADGE % ---
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
               children: [
-                Text(
-                  book['title'],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Serif', // Font có chân cho tên sách
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  book['author'],
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textGrey,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Thanh tiến độ
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progressPercent,
-                    backgroundColor: Colors.grey.shade100,
-                    color: AppColors.amber,
-                    minHeight: 6,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    book['image'],
+                    width: 70,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(width: 70, height: 100, color: Colors.grey.shade300);
+                    },
                   ),
                 ),
-                const SizedBox(height: 8),
-
-                // Số trang & Streak
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "${book['progress']} trang",
+                Positioned(
+                  bottom: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Text(
+                      "$percentDisplay%",
                       style: const TextStyle(
+                          color: Colors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textGrey
+                          fontWeight: FontWeight.bold
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.flame, size: 12, color: Colors.orange),
-                          const SizedBox(width: 2),
-                          const Text(
-                            "5",
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
-                          ),
-                        ],
-                      ),
-                    )
-                  ],
-                )
+                  ),
+                ),
               ],
             ),
-          )
-        ],
+
+            const SizedBox(width: 16),
+
+            // --- PHẦN 2: THÔNG TIN SÁCH ---
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    book['title'],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    book['author'],
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Thanh tiến độ
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progressPercent,
+                      backgroundColor: Colors.grey.shade100,
+                      color: Colors.orange.shade600,
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Số trang & Streak
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "${book['total']} trang",
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textGrey
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.flame, size: 12, color: Colors.orange),
+                            const SizedBox(width: 2),
+                            Text(
+                              "${book['streak']}",
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
+                  )
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
