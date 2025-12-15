@@ -3,6 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/add_book/add_book_sheet.dart';
+import 'screens/home/community_screen.dart'; // Dòng này sẽ hết bị mờ
+import 'screens/home/profile_screen.dart';   // Dòng này sẽ hết bị mờ
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -14,12 +16,12 @@ class MainWrapper extends StatefulWidget {
 class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
 
-  // Danh sách các màn hình (Placeholder)
+  // CẬP NHẬT: Đã thay thế các màn hình tạm bằng màn hình thật
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))),
-    const Scaffold(body: Center(child: Text("Màn hình Cộng đồng"))),
-    const Scaffold(body: Center(child: Text("Màn hình Hồ sơ"))),
+    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))), // Vẫn giữ tạm nếu chưa có code Ôn tập
+    const CommunityScreen(), // <--- Đã cập nhật: Màn hình cộng đồng mới
+    const ProfileScreen(),   // <--- Đã cập nhật: Màn hình hồ sơ mới
   ];
 
   @override
@@ -29,6 +31,7 @@ class _MainWrapperState extends State<MainWrapper> {
       body: Stack(
         children: [
           // 1. Nội dung màn hình (Nằm dưới)
+          // Dùng IndexedStack để giữ trạng thái màn hình khi chuyển tab (tùy chọn, ở đây giữ nguyên logic cũ của bạn)
           _screens[_selectedIndex],
 
           // 2. Thanh Menu nổi (Floating Bottom Bar)
