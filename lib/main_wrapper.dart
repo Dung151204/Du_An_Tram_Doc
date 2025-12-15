@@ -3,8 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/add_book/add_book_sheet.dart';
-import 'screens/home/community_screen.dart'; // Dòng này sẽ hết bị mờ
-import 'screens/home/profile_screen.dart';   // Dòng này sẽ hết bị mờ
+import 'screens/home/community_screen.dart';
+import 'screens/home/profile_screen.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -16,27 +16,22 @@ class MainWrapper extends StatefulWidget {
 class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
 
-  // CẬP NHẬT: Đã thay thế các màn hình tạm bằng màn hình thật
+  // Danh sách các màn hình
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))), // Vẫn giữ tạm nếu chưa có code Ôn tập
-    const CommunityScreen(), // <--- Đã cập nhật: Màn hình cộng đồng mới
-    const ProfileScreen(),   // <--- Đã cập nhật: Màn hình hồ sơ mới
+    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))), // Giữ tạm
+    const CommunityScreen(), // Màn hình mới
+    const ProfileScreen(),   // Màn hình mới
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Sử dụng Stack để thanh menu nổi lên trên nội dung
       body: Stack(
         children: [
-          // 1. Nội dung màn hình (Nằm dưới)
-          // Dùng IndexedStack để giữ trạng thái màn hình khi chuyển tab (tùy chọn, ở đây giữ nguyên logic cũ của bạn)
           _screens[_selectedIndex],
-
-          // 2. Thanh Menu nổi (Floating Bottom Bar)
           Positioned(
-            bottom: 24, // Cách đáy 24px
+            bottom: 24,
             left: 24,
             right: 24,
             child: Container(
@@ -57,8 +52,6 @@ class _MainWrapperState extends State<MainWrapper> {
                 children: [
                   _buildNavItem(LucideIcons.bookOpen, "Thư viện", 0),
                   _buildNavItem(LucideIcons.repeat, "Ôn tập", 1),
-
-                  // Nút (+) Lồi lên ở giữa
                   GestureDetector(
                     onTap: () {
                       showModalBottomSheet(
@@ -71,7 +64,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     child: Container(
                       width: 56,
                       height: 56,
-                      margin: const EdgeInsets.only(bottom: 24), // Đẩy lên cao
+                      margin: const EdgeInsets.only(bottom: 24),
                       decoration: BoxDecoration(
                         color: AppColors.amber,
                         shape: BoxShape.circle,
@@ -87,7 +80,6 @@ class _MainWrapperState extends State<MainWrapper> {
                       child: const Icon(LucideIcons.plus, color: Colors.white),
                     ),
                   ),
-
                   _buildNavItem(LucideIcons.users, "Cộng đồng", 2),
                   _buildNavItem(LucideIcons.user, "Hồ sơ", 3),
                 ],
@@ -99,13 +91,12 @@ class _MainWrapperState extends State<MainWrapper> {
     );
   }
 
-  // Widget con để tạo từng icon trong menu
   Widget _buildNavItem(IconData icon, String label, int index) {
     final bool isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
       child: Container(
-        color: Colors.transparent, // Để dễ bấm
+        color: Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
