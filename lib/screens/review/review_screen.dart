@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- Cần thêm dòng này để chỉnh màu thanh Pin/Giờ
 import '../../core/constants/app_colors.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -14,9 +15,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Màu nền đổi theo trạng thái: Sáng (Câu hỏi) - Tối (Đáp án)
+    // Màu nền đổi theo trạng thái
     final backgroundColor = _showAnswer ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
     final textColor = _showAnswer ? Colors.white : AppColors.textDark;
+
+    // QUAN TRỌNG: Điều chỉnh màu icon trên thanh trạng thái (Pin, Giờ)
+    // Nếu đang hiện đáp án (nền tối) -> Icon màu trắng (light)
+    // Nếu đang hiện câu hỏi (nền sáng) -> Icon màu đen (dark)
+    SystemChrome.setSystemUIOverlayStyle(_showAnswer ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -33,6 +39,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     "Ôn tập",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor),
                   ),
+                  // Nút đếm số thẻ còn lại
                   if (_showAnswer)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -40,7 +47,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.white24)),
-                      child: const Text("2 thẻ", style: TextStyle(color: AppColors.amber, fontSize: 12)),
+                      child: const Text("2 thẻ", style: TextStyle(color: AppColors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
                     )
                 ],
               ),
@@ -73,11 +80,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ),
             ),
 
-            // NÚT ĐÁNH GIÁ (Chỉ hiện khi lật mặt sau)
-            SizedBox(
-              height: 100,
-              child: _showAnswer
-                  ? Padding(
+            // NÚT ĐÁNH GIÁ
+            if (_showAnswer)
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   children: [
@@ -88,10 +93,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     _buildRateBtn("Dễ", const Color(0xFF064E3B), Colors.green),
                   ],
                 ),
-              )
-                  : null,
-            ),
-            const SizedBox(height: 130), // Bottom padding
+              ),
+
+            // Đẩy nội dung lên cao tránh Menu che mất
+            const SizedBox(height: 130),
           ],
         ),
       ),
