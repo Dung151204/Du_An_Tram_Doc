@@ -5,6 +5,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/add_book/add_book_sheet.dart';
 import 'screens/home/community_screen.dart';
 import 'screens/home/profile_screen.dart';
+import 'screens/review/review_screen.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -19,7 +20,7 @@ class _MainWrapperState extends State<MainWrapper> {
   // Danh sách các màn hình
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text("Màn hình Ôn tập"))), // Giữ tạm
+    const ReviewScreen(),
     const CommunityScreen(), // Màn hình mới
     const ProfileScreen(),   // Màn hình mới
   ];

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
-import 'reading_screen.dart'; // Import màn hình đọc đã làm
+import 'reading_screen.dart';
+import 'rating_screen.dart'; // <--- 1. Đã thêm import màn hình đánh giá
 
 class BookPreviewScreen extends StatelessWidget {
   final Map<String, dynamic> book;
@@ -34,22 +35,35 @@ class BookPreviewScreen extends StatelessWidget {
           SafeArea(
             child: Column(
               children: [
-                // Header (Đã xóa 2 nút Bookmark và Share)
+                // Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   child: Row(
                     children: [
+                      // Nút Back
                       _buildCircleButton(context, LucideIcons.chevronLeft, onTap: () => Navigator.pop(context)),
+
                       const Spacer(),
-                      // Chỉ còn lại nút Ngôi sao
-                      _buildCircleButton(context, LucideIcons.star),
+
+                      // --- 2. CẬP NHẬT NÚT NGÔI SAO TẠI ĐÂY ---
+                      _buildCircleButton(
+                        context,
+                        LucideIcons.star,
+                        onTap: () {
+                          // Chuyển sang màn hình RatingScreen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => RatingScreen(book: book)),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 20),
 
-                // Ảnh bìa sách
+                // Ảnh bìa sách (Hero Animation)
                 Hero(
                   tag: book['title'],
                   child: Container(
