@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- 1. QUAN TRỌNG: Thêm thư viện này
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 
 class BookPreviewScreen extends StatelessWidget {
   final String bookTitle;
   final String author;
+  final String imagePath; // <--- 1. Thêm biến này để nhận đường dẫn ảnh
 
   const BookPreviewScreen({
     super.key,
     required this.bookTitle,
     required this.author,
+    required this.imagePath, // <--- 2. Bắt buộc truyền ảnh vào
   });
 
   @override
   Widget build(BuildContext context) {
-    // 2. LỆNH ĐỔI MÀU ICON THANH TRẠNG THÁI SANG MÀU ĐEN (DARK)
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // Nền xám nhạt
+      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Đảm bảo icon status bar luôn đen khi có AppBar
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         leading: IconButton(
           icon: const Icon(LucideIcons.x, color: AppColors.textDark, size: 28),
@@ -37,12 +37,12 @@ class BookPreviewScreen extends StatelessWidget {
           child: Stack(
             alignment: Alignment.bottomCenter,
             children: [
-              // --- CARD THÔNG TIN (MÀU KEM) ---
+              // --- CARD THÔNG TIN ---
               Container(
                 height: 450,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF8E7), // Màu kem
+                  color: const Color(0xFFFEF8E7),
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
@@ -55,11 +55,11 @@ class BookPreviewScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    const SizedBox(height: 180), // Khoảng trống né ảnh bìa
+                    const SizedBox(height: 180),
 
                     // Tên sách
                     Text(
-                      bookTitle.isEmpty ? "Nhà Giả Kim" : bookTitle,
+                      bookTitle.isEmpty ? "Chưa có tên" : bookTitle,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 24,
@@ -74,11 +74,11 @@ class BookPreviewScreen extends StatelessWidget {
 
                     // Tác giả
                     Text(
-                      author.isEmpty ? "Paulo Coelho" : author,
+                      author.isEmpty ? "Chưa rõ" : author,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 16,
-                          color: Color(0xFF3B82F6), // Xanh dương
+                          color: Color(0xFF3B82F6),
                           fontWeight: FontWeight.w600
                       ),
                     ),
@@ -146,7 +146,7 @@ class BookPreviewScreen extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
-                      'assets/images/nha_gia_kim.jpg',
+                      imagePath, // <--- 3. Dùng biến imagePath thay vì code cứng
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(

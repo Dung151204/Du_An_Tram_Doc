@@ -3,7 +3,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 import 'book_preview_screen.dart';
 
-// 1. Chuyển sang StatefulWidget để quản lý việc nhập liệu
 class ManualAddScreen extends StatefulWidget {
   const ManualAddScreen({super.key});
 
@@ -12,7 +11,7 @@ class ManualAddScreen extends StatefulWidget {
 }
 
 class _ManualAddScreenState extends State<ManualAddScreen> {
-  // 2. KHAI BÁO 2 BIẾN ĐANG BỊ THIẾU
+  // Khai báo Controller để bắt chữ nhập vào
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
 
@@ -45,7 +44,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Ảnh bìa (Giữ nguyên code của bạn)
+            // Ảnh bìa Placeholder
             Center(
               child: Container(
                 width: 140,
@@ -66,13 +65,13 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
             ),
             const SizedBox(height: 32),
 
-            // 2. Các ô nhập liệu (Đã truyền controller vào)
+            // Các ô nhập liệu
             _buildLabel("Tên sách"),
-            _buildInput("Nhập tên sách...", controller: _titleController), // <-- Truyền biến vào đây
+            _buildInput("Nhập tên sách...", controller: _titleController),
             const SizedBox(height: 20),
 
             _buildLabel("Tác giả"),
-            _buildInput("Tên tác giả...", controller: _authorController), // <-- Truyền biến vào đây
+            _buildInput("Tên tác giả...", controller: _authorController),
             const SizedBox(height: 20),
 
             Row(
@@ -98,7 +97,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
 
             const SizedBox(height: 40),
 
-            // 3. Nút Lưu lại
+            // Nút Lưu lại
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -108,14 +107,18 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
 
-                // SỰ KIỆN KHI BẤM NÚT (Giờ đã hết lỗi đỏ)
+                // SỰ KIỆN KHI BẤM NÚT
                 onPressed: () {
                   Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (_) => BookPreviewScreen(
-                            bookTitle: _titleController.text, // Đã lấy được chữ
-                            author: _authorController.text,   // Đã lấy được chữ
+                            bookTitle: _titleController.text, // Lấy tên sách
+                            author: _authorController.text,   // Lấy tác giả
+
+                            // --- SỬA LỖI TẠI ĐÂY: THÊM DÒNG NÀY ---
+                            imagePath: "assets/images/nha_gia_kim.jpg",
+                            // -------------------------------------
                           )
                       )
                   );
@@ -140,7 +143,6 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     );
   }
 
-  // Cập nhật hàm này để nhận biến controller
   Widget _buildInput(String hint, {bool isDropdown = false, TextEditingController? controller}) {
     return Container(
       decoration: BoxDecoration(
@@ -148,7 +150,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextField(
-        controller: controller, // <-- Gắn biến vào đây để nhận chữ
+        controller: controller,
         readOnly: isDropdown,
         decoration: InputDecoration(
           hintText: hint,
