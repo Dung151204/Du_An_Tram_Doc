@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "635505254366",
+    "project_id": "tram-doc-app",
+    "storage_bucket": "tram-doc-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:635505254366:android:4bf1fe51393a827476074f",
+        "android_client_info": {
+          "package_name": "com.example.tramdoc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFXQQr7GOvkb9udxJNcxr2jg_p2IkP7to"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
