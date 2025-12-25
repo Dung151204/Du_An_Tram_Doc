@@ -1,10 +1,16 @@
+// File: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+// Import đường dẫn mới
 import '../../core/constants/app_colors.dart';
-import '../../main_wrapper.dart';
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_textfield.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import 'forgot_password_screen.dart';
+
+// Giả định MainWrapper đang ở thư mục gốc lib (bạn kiểm tra lại đường dẫn file này nhé)
+import '../../main_wrapper.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,7 +19,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _isObscure = true; // Ẩn/hiện mật khẩu
+  // Controller để lấy dữ liệu nhập vào (Mới thêm)
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -22,12 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. HEADER (Phần màu xanh đậm cong cong)
+            // 1. HEADER
             Container(
               height: 300,
               width: double.infinity,
               decoration: const BoxDecoration(
-                color: Color(0xFF3F4E66), // Màu nền header khớp ảnh
+                color: Color(0xFF3F4E66),
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
@@ -37,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40),
-                  // Logo/Icon sách
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -69,18 +76,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text("Đăng nhập", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 24),
 
-                  // Input Email
-                  _buildTextField(label: "Email", icon: LucideIcons.mail),
+                  // --- DÙNG WIDGET MỚI Ở ĐÂY ---
+                  CustomTextField(
+                    label: "Email",
+                    icon: LucideIcons.mail,
+                    controller: _emailController,
+                  ),
                   const SizedBox(height: 16),
 
-                  // Input Mật khẩu
-                  _buildTextField(
+                  CustomTextField(
                     label: "Mật khẩu",
                     icon: LucideIcons.lock,
                     isPassword: true,
+                    controller: _passController,
                   ),
+                  // -----------------------------
 
-                  // Quên mật khẩu?
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -92,34 +103,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Nút Đăng nhập
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Chuyển vào màn hình chính (Home)
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainWrapper()));
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        elevation: 0,
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text("Đăng nhập", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                          SizedBox(width: 8),
-                          Icon(LucideIcons.arrowRight, color: Colors.white, size: 20)
-                        ],
-                      ),
-                    ),
+                  // --- DÙNG NÚT BẤM MỚI Ở ĐÂY ---
+                  CustomButton(
+                    text: "Đăng nhập",
+                    icon: LucideIcons.arrowRight,
+                    onPressed: () {
+                      // Logic đăng nhập sau này sẽ viết ở đây
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainWrapper()));
+                    },
                   ),
+                  // -----------------------------
 
                   const SizedBox(height: 32),
-
-                  // Footer: Chưa có tài khoản?
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -136,33 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // Widget con để vẽ ô nhập liệu cho đẹp
-  Widget _buildTextField({required String label, required IconData icon, bool isPassword = false}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: TextField(
-        obscureText: isPassword ? _isObscure : false,
-        decoration: InputDecoration(
-          hintText: label,
-          hintStyle: const TextStyle(color: AppColors.textGrey, fontSize: 14),
-          prefixIcon: Icon(icon, color: AppColors.textGrey, size: 20),
-          suffixIcon: isPassword
-              ? IconButton(
-            icon: Icon(_isObscure ? LucideIcons.eye : LucideIcons.eyeOff, color: AppColors.textGrey, size: 20),
-            onPressed: () => setState(() => _isObscure = !_isObscure),
-          )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
       ),
     );

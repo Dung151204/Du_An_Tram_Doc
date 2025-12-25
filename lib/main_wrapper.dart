@@ -3,8 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'core/constants/app_colors.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/add_book/add_book_sheet.dart';
-import 'screens/home/community_screen.dart';
-import 'screens/home/profile_screen.dart';
+import 'screens/community/community_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'screens/review/review_screen.dart';
 
 class MainWrapper extends StatefulWidget {
