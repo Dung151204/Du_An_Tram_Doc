@@ -32,7 +32,7 @@ dependencies:
 
   # --- FEATURES (TÍNH NĂNG) ---
   # Chọn ảnh từ thư viện hoặc chụp ảnh
-  image_picker: ^1.0.4
+  image_picker: ^1.2.1
   # Xử lý ngày tháng (VD: "2 giờ trước")
   intl: ^0.18.1
 
