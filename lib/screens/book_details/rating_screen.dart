@@ -3,7 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 
 class RatingScreen extends StatefulWidget {
-  final Map<String, dynamic> book; // Nhận thông tin sách để hiển thị ảnh bìa
+  final Map<String, dynamic> book;
 
   const RatingScreen({super.key, required this.book});
 
@@ -12,10 +12,14 @@ class RatingScreen extends StatefulWidget {
 }
 
 class _RatingScreenState extends State<RatingScreen> {
-  int _rating = 0; // Biến lưu số sao người dùng chọn (0 -> 5)
+  int _rating = 0;
 
   @override
   Widget build(BuildContext context) {
+    // Kiểm tra xem sách có ảnh không
+    final bool hasImage = widget.book['image'] != null;
+    final Color bookColor = widget.book['color'] ?? const Color(0xFFC2410C); // Lấy màu sách hoặc mặc định cam
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -41,7 +45,7 @@ class _RatingScreenState extends State<RatingScreen> {
           children: [
             const SizedBox(height: 10),
 
-            // 1. ẢNH BÌA SÁCH
+            // 1. ẢNH BÌA SÁCH (Đã sửa lỗi Null)
             Container(
               decoration: BoxDecoration(
                 boxShadow: [
@@ -54,11 +58,26 @@ class _RatingScreenState extends State<RatingScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
+                child: hasImage
+                    ? Image.asset(
                   widget.book['image'],
                   width: 120,
                   height: 180,
                   fit: BoxFit.cover,
+                )
+                    : Container(
+                  // Nếu không có ảnh thì hiện khối màu
+                  width: 120,
+                  height: 180,
+                  color: bookColor,
+                  padding: const EdgeInsets.all(12),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.book['title'],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ),
@@ -67,7 +86,8 @@ class _RatingScreenState extends State<RatingScreen> {
             // 2. TÊN SÁCH & TÁC GIẢ
             Text(
               widget.book['title'],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
@@ -78,18 +98,18 @@ class _RatingScreenState extends State<RatingScreen> {
 
             const SizedBox(height: 24),
 
-            // 3. HÀNG 5 NGÔI SAO (Tương tác được)
+            // 3. HÀNG 5 NGÔI SAO
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
                 return IconButton(
                   onPressed: () {
                     setState(() {
-                      _rating = index + 1; // Bấm sao thứ 3 thì rating = 3
+                      _rating = index + 1;
                     });
                   },
                   icon: Icon(
-                    index < _rating ? Icons.star_rounded : LucideIcons.star, // Đã chọn thì full, chưa thì rỗng
+                    index < _rating ? Icons.star_rounded : LucideIcons.star,
                     color: index < _rating ? Colors.amber : Colors.grey.shade400,
                     size: 32,
                   ),
@@ -99,12 +119,12 @@ class _RatingScreenState extends State<RatingScreen> {
 
             const SizedBox(height: 32),
 
-            // 4. Ô NHẬP LIỆU (Màu xanh nhạt)
+            // 4. Ô NHẬP LIỆU
             Container(
               height: 150,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF), // Màu xanh dương rất nhạt (giống ảnh)
+                color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const TextField(
@@ -125,16 +145,18 @@ class _RatingScreenState extends State<RatingScreen> {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  // Xử lý gửi đánh giá (hiện tại chỉ back về)
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Đã gửi đánh giá thành công!"), backgroundColor: Colors.green),
+                    const SnackBar(
+                        content: Text("Đã gửi đánh giá thành công!"),
+                        backgroundColor: Colors.green),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEFF6FF), // Nền xanh nhạt
+                  backgroundColor: const Color(0xFFEFF6FF),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -143,7 +165,10 @@ class _RatingScreenState extends State<RatingScreen> {
                     SizedBox(width: 8),
                     Text(
                       "Gửi đánh giá",
-                      style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
                     ),
                   ],
                 ),

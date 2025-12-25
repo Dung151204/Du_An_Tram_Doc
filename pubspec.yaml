@@ -44,6 +44,8 @@ dependencies:
 
   # Icon mặc định của iOS
   cupertino_icons: ^1.0.2
+  provider: ^6.1.5+1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -57,4 +59,4 @@ flutter:
   # Bạn nhớ tạo đúng 2 thư mục này trong project nhé!
   assets:
     - assets/images/
-    - assets/icons/
+#    - assets/icons/

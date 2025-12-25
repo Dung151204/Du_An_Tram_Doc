@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
-import 'book_detail_screen.dart'; // Màn hình chi tiết sách đang đọc
-import 'book_preview_screen.dart'; // Màn hình xem trước sách khám phá (MỚI)
+import '../book_details/book_detail_screen.dart'; // Màn hình chi tiết sách đang đọc
+import '../book_details/book_preview_screen.dart'; // Màn hình xem trước sách khám phá (MỚI)
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
