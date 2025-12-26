@@ -1,14 +1,13 @@
 // File: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Thư viện này sẽ hết đỏ sau khi chạy lệnh ở Bước 1
 import 'package:lucide_icons/lucide_icons.dart';
-// Import đường dẫn mới
+
 import '../../core/constants/app_colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-
-// Giả định MainWrapper đang ở thư mục gốc lib (bạn kiểm tra lại đường dẫn file này nhé)
 import '../../main_wrapper.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,9 +18,67 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Controller để lấy dữ liệu nhập vào (Mới thêm)
+  // KHAI BÁO: Tên biến là _passController (viết tắt)
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
+
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    // SỬA LỖI: Dùng đúng tên biến _passController
+    if (_emailController.text.trim().isEmpty || _passController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập đầy đủ Email và Mật khẩu!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passController.text.trim(), // Đã sửa lại đúng tên biến ở đây
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainWrapper()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'Đăng nhập thất bại. Vui lòng thử lại.';
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+        message = 'Tài khoản hoặc mật khẩu không đúng.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Sai mật khẩu.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Email không hợp lệ.';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. HEADER
+            // HEADER
             Container(
               height: 300,
               width: double.infinity,
@@ -67,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // 2. FORM ĐĂNG NHẬP
+            // FORM
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
@@ -76,7 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text("Đăng nhập", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 24),
 
-                  // --- DÙNG WIDGET MỚI Ở ĐÂY ---
                   CustomTextField(
                     label: "Email",
                     icon: LucideIcons.mail,
@@ -88,9 +144,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: "Mật khẩu",
                     icon: LucideIcons.lock,
                     isPassword: true,
-                    controller: _passController,
+                    controller: _passController, // Đã gắn đúng controller
                   ),
-                  // -----------------------------
 
                   Align(
                     alignment: Alignment.centerRight,
@@ -103,16 +158,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- DÙNG NÚT BẤM MỚI Ở ĐÂY ---
-                  CustomButton(
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: AppColors.amber))
+                      : CustomButton(
                     text: "Đăng nhập",
                     icon: LucideIcons.arrowRight,
-                    onPressed: () {
-                      // Logic đăng nhập sau này sẽ viết ở đây
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainWrapper()));
-                    },
+                    onPressed: _handleLogin,
                   ),
-                  // -----------------------------
 
                   const SizedBox(height: 32),
                   Row(
