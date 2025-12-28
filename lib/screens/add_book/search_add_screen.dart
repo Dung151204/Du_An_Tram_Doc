@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
 import '../../services/database_service.dart';
-import 'book_add_preview_screen.dart';
 import 'manual_add_screen.dart';
+// import 'book_add_preview_screen.dart'; // Có thể bỏ nếu không cần xem trước khi clone
 
 class SearchAddScreen extends StatefulWidget {
   const SearchAddScreen({super.key});
@@ -16,6 +16,30 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _keyword = "";
 
+  // [HÀM MỚI] Xử lý khi bấm dấu Cộng (+) để Clone sách
+  void _onAddToLibrary(BookModel book) async {
+    try {
+      // Gọi service để Clone sách về tủ cá nhân
+      await DatabaseService().cloneBookToLibrary(book);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Đã thêm '${book.title}' vào tủ sách cá nhân!"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Lỗi: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,22 +47,34 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
-        title: const Text("Tìm sách có sẵn", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
         centerTitle: true,
+        title: const Text(
+          "Thêm sách",
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 20),
+        ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Container(
-              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _keyword = value.toLowerCase().trim()),
                 decoration: const InputDecoration(
-                  hintText: "Nhập tên sách hoặc tác giả...",
-                  prefixIcon: Icon(Icons.search, color: Colors.grey),
+                  hintText: "Nhập tên sách, tác giả...",
+                  hintStyle: TextStyle(color: Colors.grey),
+                  prefixIcon: Icon(Icons.search, color: Colors.orange),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 ),
@@ -46,29 +82,33 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
             ),
           ),
 
+          if (_keyword.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Text(
+                "Gợi ý từ Kho chung", // Sửa text cho hợp logic
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
+              ),
+            ),
+
+          // DANH SÁCH KẾT QUẢ
           Expanded(
             child: StreamBuilder<List<BookModel>>(
-              stream: DatabaseService().getBooks(), // Kết nối Firebase thật
+              // [QUAN TRỌNG] Đổi thành getPublicBooks để chỉ tìm trong KHO CHUNG
+              stream: DatabaseService().getPublicBooks(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                 }
-
                 final allBooks = snapshot.data ?? [];
 
-                // Nếu kho sách rỗng
-                if (allBooks.isEmpty) {
-                  return const Center(child: Text("Kho sách chung chưa có dữ liệu.\nHãy là người đầu tiên đóng góp!", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)));
-                }
-
+                // Logic lọc tìm kiếm (giữ nguyên)
                 List<BookModel> displayBooks = [];
-
                 if (_keyword.isEmpty) {
-                  // Đề xuất 5 cuốn có Rating cao nhất
+                  // Sắp xếp theo rating nếu chưa tìm gì
                   allBooks.sort((a, b) => b.rating.compareTo(a.rating));
-                  displayBooks = allBooks.take(5).toList();
+                  displayBooks = allBooks.take(10).toList();
                 } else {
-                  // Tìm kiếm theo tên (Không phân biệt hoa thường)
                   displayBooks = allBooks.where((book) =>
                   book.title.toLowerCase().contains(_keyword) ||
                       book.author.toLowerCase().contains(_keyword)
@@ -76,12 +116,15 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
                 }
 
                 if (displayBooks.isEmpty) {
-                  return Column(
-                    children: [
-                      const SizedBox(height: 50),
-                      const Icon(Icons.search_off, size: 50, color: Colors.grey),
-                      Text("Không tìm thấy sách: \"$_keyword\"", style: const TextStyle(color: Colors.grey)),
-                    ],
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search_off, size: 50, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(_keyword.isEmpty ? "Kho sách trống" : "Không tìm thấy: \"$_keyword\"", style: const TextStyle(color: Colors.grey)),
+                      ],
+                    ),
                   );
                 }
 
@@ -95,28 +138,24 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
             ),
           ),
 
-          // Nút nhập thủ công
-          Container(
-            padding: const EdgeInsets.all(24),
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.black12)),
-            ),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.edit_note, color: Colors.white),
-              label: const Text("Không tìm thấy? Nhập thủ công", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ManualAddScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade50,
+                  foregroundColor: Colors.orange,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                icon: const Icon(Icons.edit_note),
+                label: const Text("Nhập thủ công", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ManualAddScreen()),
-                );
-              },
             ),
           )
         ],
@@ -130,7 +169,17 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
     Color letterColor = book.coverColor ?? Colors.orange;
 
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
@@ -140,20 +189,21 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
           child: Text(firstLetter, style: TextStyle(color: letterColor, fontWeight: FontWeight.bold, fontSize: 20)),
         ),
         title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Row(
-          children: [
-            Text(book.author, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(width: 8),
-            // Hiển thị sao đánh giá
-            Icon(Icons.star, size: 14, color: Colors.amber),
-            Text(" ${book.rating}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(book.author, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         ),
+        // [LOGIC NÚT ADD]
         trailing: GestureDetector(
           onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => BookAddPreviewScreen(book: book)));
+            // Thay vì chuyển màn hình, ta gọi hàm Clone ngay lập tức
+            _onAddToLibrary(book);
           },
-          child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle), child: const Icon(Icons.add, color: Colors.white, size: 20)),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+            child: const Icon(Icons.add, color: Colors.white, size: 20),
+          ),
         ),
       ),
     );

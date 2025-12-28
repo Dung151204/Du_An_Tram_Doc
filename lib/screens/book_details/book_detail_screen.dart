@@ -2,17 +2,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
-import '../../models/review_model.dart'; // Đảm bảo file này đã được tạo và Save
+import '../../models/review_model.dart';
 import '../../services/database_service.dart';
 import '../reading/reading_screen.dart';
 import 'rating_screen.dart';
 
 class BookDetailScreen extends StatelessWidget {
   final BookModel initialBook;
-
   const BookDetailScreen({super.key, required this.book}) : initialBook = book;
   final BookModel book;
 
+  // GIỮ NGUYÊN HÀM XÓA
   void _confirmDelete(BuildContext context, String bookId) {
     showDialog(
       context: context,
@@ -49,8 +49,10 @@ class BookDetailScreen extends StatelessWidget {
           backgroundColor: Colors.white,
           body: CustomScrollView(
             slivers: [
+              // --- 1. HEADER (Sửa style hiển thị ảnh to hơn) ---
               SliverAppBar(
-                expandedHeight: 350, pinned: true,
+                expandedHeight: 380, // Cao hơn chút
+                pinned: true,
                 backgroundColor: currentBook.coverColor ?? AppColors.primary,
                 leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
                 actions: [
@@ -62,33 +64,38 @@ class BookDetailScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 50),
+                        // Khung ảnh bo tròn có bóng mờ
                         Container(
-                          decoration: const BoxDecoration(boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)]),
+                          width: 120, height: 170, // Ảnh to hơn
+                          decoration: BoxDecoration(
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+                          ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: currentBook.imageUrl.isNotEmpty
                                 ? (currentBook.imageUrl.startsWith('http')
-                                ? Image.network(currentBook.imageUrl, width: 140, height: 210, fit: BoxFit.cover)
-                                : Image.file(File(currentBook.imageUrl), width: 140, height: 210, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(width: 140, height: 210, color: Colors.white24)))
-                                : Container(width: 140, height: 210, color: Colors.white24, child: const Icon(Icons.book, size: 50, color: Colors.white)),
+                                ? Image.network(currentBook.imageUrl, fit: BoxFit.cover)
+                                : Image.file(File(currentBook.imageUrl), fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.white24)))
+                                : Container(color: Colors.white24, child: const Icon(Icons.book, size: 50, color: Colors.white)),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(currentBook.title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text(currentBook.author, style: const TextStyle(color: Colors.white70)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
+                        Text(currentBook.title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(currentBook.author, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                        const SizedBox(height: 12),
 
+                        // Pill đánh giá (Viên thuốc đen mờ)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, color: Colors.amber, size: 18),
+                              const Icon(Icons.star, color: Colors.amber, size: 16),
                               const SizedBox(width: 4),
-                              Text("${currentBook.rating}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text(" (${currentBook.reviewsCount} đánh giá)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text("${currentBook.rating} (${currentBook.reviewsCount})", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         )
@@ -104,48 +111,59 @@ class BookDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // --- 2. CỤM NÚT BẤM (GIỐNG FIGMA) ---
                       Row(children: [
                         Expanded(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.menu_book, color: Colors.white),
-                            label: const Text("Đọc ngay", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReadingScreen(bookTitle: currentBook.title, content: currentBook.content))),
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.menu_book, color: Colors.white),
+                              label: const Text("Đọc ngay", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E293B), // MÀU XANH ĐEN (Dark Navy)
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 0,
+                              ),
+                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReadingScreen(bookTitle: currentBook.title, content: currentBook.content))),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Container(
-                          decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
-                          child: IconButton(
-                            icon: const Icon(Icons.star, color: Colors.orange),
+                        // Nút Sao (Hình vuông bo góc)
+                        SizedBox(
+                          width: 56, height: 56,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFF7ED), // MÀU VÀNG CAM NHẠT (Pale Orange)
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 0,
+                              padding: EdgeInsets.zero,
+                            ),
                             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RatingScreen(book: currentBook))),
+                            child: const Icon(Icons.star, color: Colors.orange, size: 28),
                           ),
                         )
                       ]),
-                      const SizedBox(height: 30),
+
+                      const SizedBox(height: 32),
                       const Text("Giới thiệu", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      Text(currentBook.description.isNotEmpty ? currentBook.description : "Chưa có mô tả.", style: const TextStyle(height: 1.5)),
+                      Text(currentBook.description.isNotEmpty ? currentBook.description : "Chưa có mô tả.", style: const TextStyle(height: 1.5, color: Colors.grey)),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 32),
                       const Text("Đánh giá từ cộng đồng", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
 
+                      // --- 3. LIST REVIEW (Giữ nguyên logic, chỉnh nhẹ padding) ---
                       StreamBuilder<List<ReviewModel>>(
                         stream: DatabaseService().getReviews(currentBook.id ?? ""),
                         builder: (context, snapshot) {
-                          if (snapshot.hasError) return Text("Lỗi tải đánh giá: ${snapshot.error}", style: const TextStyle(color: Colors.red));
+                          if (snapshot.hasError) return Text("Lỗi: ${snapshot.error}", style: const TextStyle(color: Colors.red));
                           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return Center(
-                              child: Column(
-                                children: const [
-                                  Icon(Icons.rate_review_outlined, size: 40, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text("Chưa có đánh giá nào.\nHãy là người đầu tiên!", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
+                            return const Center(
+                              child: Text("Chưa có đánh giá nào. Hãy là người đầu tiên!", style: TextStyle(color: Colors.grey)),
                             );
                           }
 
@@ -154,9 +172,9 @@ class BookDetailScreen extends StatelessWidget {
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
+                                color: const Color(0xFFF8FAFC), // Xám rất nhạt
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
+                                // Bỏ border để trông mềm mại hơn
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +194,7 @@ class BookDetailScreen extends StatelessWidget {
                                           children: [
                                             Text(review.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                             Text(
-                                                "${review.createdAt.day}/${review.createdAt.month}/${review.createdAt.year}",
+                                                "${review.createdAt.day}/${review.createdAt.month}",
                                                 style: const TextStyle(fontSize: 10, color: Colors.grey)
                                             ),
                                           ],
@@ -187,7 +205,6 @@ class BookDetailScreen extends StatelessWidget {
                                         decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(8)),
                                         child: Row(children: [
                                           const Icon(Icons.star, size: 12, color: Colors.orange),
-                                          // --- ĐÃ SỬA: Xóa const ở đây ---
                                           Text(" ${review.rating}", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900))
                                         ]),
                                       ),

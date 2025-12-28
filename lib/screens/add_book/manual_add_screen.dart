@@ -22,7 +22,10 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
 
   File? _selectedImage;
   late int _randomColor;
-  double _initialRating = 4.5; // Mặc định cho điểm cao để dễ test
+  double _initialRating = 4.5;
+
+  // [MỚI] Biến để chọn công khai hay riêng tư
+  bool _isPublic = false;
 
   @override
   void initState() {
@@ -47,6 +50,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     String bookId = DateTime.now().millisecondsSinceEpoch.toString();
     String imagePath = _selectedImage != null ? _selectedImage!.path : "";
 
+    // Tạo BookModel với cờ isPublic
     final tempBook = BookModel(
       id: bookId,
       title: _titleController.text.trim(),
@@ -57,8 +61,12 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
       imageUrl: imagePath,
       colorValue: _randomColor,
       createdAt: DateTime.now(),
-      rating: _initialRating, // <--- LƯU ĐIỂM ĐÁNH GIÁ VÀO ĐÂY
-      reviewsCount: 1, // Giả vờ đã có 1 đánh giá
+      rating: _initialRating,
+      reviewsCount: 1,
+      // [QUAN TRỌNG] Gán giá trị công khai/riêng tư tại đây
+      // Lưu ý: Nếu BookModel của bạn chưa có field này,
+      // hãy chắc chắn DatabaseService.addBook xử lý nó thông qua Map
+      isPublic: _isPublic,
     );
 
     Navigator.push(
@@ -112,7 +120,8 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
             ]),
 
             const SizedBox(height: 16),
-            // --- THANH CHỌN ĐIỂM ĐÁNH GIÁ (MỚI) ---
+
+            // --- UI ĐÁNH GIÁ ---
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -133,6 +142,23 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                   onChanged: (val) => setState(() => _initialRating = val),
                 )
               ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // --- [MỚI] NÚT GẠT CHIA SẺ CỘNG ĐỒNG ---
+            // Thiết kế theo style của _buildInput
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(color: const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)),
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("Chia sẻ cho cộng đồng?", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                subtitle: const Text("Người khác có thể tìm thấy sách này", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                value: _isPublic,
+                activeColor: Colors.orange,
+                onChanged: (val) => setState(() => _isPublic = val),
+              ),
             ),
 
             const SizedBox(height: 24),

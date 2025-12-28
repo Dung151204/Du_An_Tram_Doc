@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/book_model.dart';
 import '../reading/reading_screen.dart';
 import 'rating_screen.dart';
 
@@ -23,9 +24,28 @@ class BookPreviewScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white), onPressed: () => Navigator.pop(context)),
+
+                      // --- NÚT SAO (ĐÃ SỬA LỖI coverColor -> colorValue) ---
                       IconButton(icon: const Icon(Icons.star, color: Colors.white), onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => RatingScreen(book: book)));
+
+                        final tempBook = BookModel(
+                          id: 'preview_${book['title']}',
+                          title: book['title'],
+                          author: book['author'],
+                          description: "Sách xem trước",
+                          content: "",
+                          imageUrl: "",
+                          totalPages: book['total'] ?? 0,
+                          rating: (book['rating'] is num) ? (book['rating'] as num).toDouble() : 0.0,
+                          reviewsCount: 0,
+                          createdAt: DateTime.now(),
+                          // SỬA Ở ĐÂY: Dùng 'colorValue' và lấy giá trị số (.value) từ đối tượng Color
+                          colorValue: (book['color'] as Color).value,
+                        );
+
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => RatingScreen(book: tempBook)));
                       }),
+                      // -----------------------------------------------------
                     ],
                   ),
                 ),

@@ -5,7 +5,7 @@ class BookModel {
   final String title;
   final String author;
   final String description;
-  final String content;     // <--- 1. MỚI THÊM: Biến lưu nội dung sách
+  final String content;     // Giữ nguyên của bạn
   final String imageUrl;
   final int? colorValue;
   final int totalPages;
@@ -14,12 +14,18 @@ class BookModel {
   final int reviewsCount;
   final DateTime createdAt;
 
+  // --- PHẦN BẮT BUỘC PHẢI THÊM ĐỂ SỬA LỖI ---
+  final String? userId; // Để biết sách của ai
+  final bool isPublic;  // Để chỉnh chế độ Riêng tư/Công khai
+  final String status;  // Để biết đang đọc hay đã xong
+  // ------------------------------------------
+
   BookModel({
     this.id,
     required this.title,
     required this.author,
     this.description = "",
-    this.content = "",      // <--- 2. Mặc định là rỗng
+    this.content = "",
     required this.imageUrl,
     this.colorValue,
     this.totalPages = 0,
@@ -27,6 +33,12 @@ class BookModel {
     this.rating = 0.0,
     this.reviewsCount = 0,
     required this.createdAt,
+
+    // --- THÊM VÀO CONSTRUCTOR ---
+    this.userId,
+    this.isPublic = false, // Mặc định là riêng tư
+    this.status = 'reading',
+    // ----------------------------
   });
 
   Color? get coverColor => colorValue != null ? Color(colorValue!) : null;
@@ -36,7 +48,7 @@ class BookModel {
       'title': title,
       'author': author,
       'description': description,
-      'content': content,   // <--- 3. Gửi nội dung lên Firebase
+      'content': content,
       'imageUrl': imageUrl,
       'colorValue': colorValue,
       'totalPages': totalPages,
@@ -44,6 +56,12 @@ class BookModel {
       'rating': rating,
       'reviewsCount': reviewsCount,
       'createdAt': createdAt.millisecondsSinceEpoch,
+
+      // --- THÊM VÀO ĐỂ LƯU LÊN FIREBASE ---
+      'userId': userId,
+      'isPublic': isPublic,
+      'status': status,
+      // ------------------------------------
     };
   }
 
@@ -53,7 +71,7 @@ class BookModel {
       title: map['title'] ?? 'Không tên',
       author: map['author'] ?? 'Không rõ',
       description: map['description'] ?? '',
-      content: map['content'] ?? '', // <--- 4. Lấy nội dung về (nếu không có thì trả về rỗng)
+      content: map['content'] ?? '',
       imageUrl: map['imageUrl'] ?? '',
       colorValue: map['colorValue'],
       totalPages: map['totalPages']?.toInt() ?? 0,
@@ -63,6 +81,12 @@ class BookModel {
       createdAt: map['createdAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
           : DateTime.now(),
+
+      // --- THÊM VÀO ĐỂ ĐỌC VỀ KHÔNG BỊ LỖI ---
+      userId: map['userId'],
+      isPublic: map['isPublic'] ?? false,
+      status: map['status'] ?? 'reading',
+      // ---------------------------------------
     );
   }
 }
