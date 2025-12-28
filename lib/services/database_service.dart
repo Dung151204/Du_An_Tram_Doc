@@ -5,8 +5,10 @@ import '../models/review_model.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final CollectionReference _bookRef = FirebaseFirestore.instance.collection('books');
-  final CollectionReference _reviewRef = FirebaseFirestore.instance.collection('reviews');
+  final CollectionReference _bookRef =
+  FirebaseFirestore.instance.collection('books');
+  final CollectionReference _reviewRef =
+  FirebaseFirestore.instance.collection('reviews');
 
   // 1. Thêm sách (GIỮ NGUYÊN)
   Future<void> addBook(BookModel book) async {
@@ -23,18 +25,15 @@ class DatabaseService {
     }
   }
 
-  // 2. Lấy sách (GIỮ NGUYÊN - Đã ẩn orderBy)
+  // 2. Lấy sách (GIỮ NGUYÊN)
   Stream<List<BookModel>> getBooks() {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const Stream.empty();
 
-    return _bookRef
-        .where('userId', isEqualTo: uid)
-    // .orderBy('createdAt', descending: true) // <--- TÔI ĐÃ ẨN DÒNG NÀY ĐỂ TRÁNH LỖI INDEX
-        .snapshots()
-        .map((snapshot) {
+    return _bookRef.where('userId', isEqualTo: uid).snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
-        return BookModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        return BookModel.fromMap(
+            doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     });
   }
@@ -46,7 +45,8 @@ class DatabaseService {
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
-        return BookModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        return BookModel.fromMap(
+            doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     });
   }
@@ -62,7 +62,8 @@ class DatabaseService {
         'description': publicBook.description,
         'totalPages': publicBook.totalPages,
         'content': publicBook.content,
-        'colorValue': publicBook.colorValue ?? publicBook.coverColor?.value,
+        'colorValue':
+        publicBook.colorValue ?? publicBook.coverColor?.value,
         'userId': uid,
         'isPublic': false,
         'status': 'reading',
@@ -83,7 +84,8 @@ class DatabaseService {
   Future<void> deleteBook(String bookId) async {
     try {
       await _bookRef.doc(bookId).delete();
-      final reviewsSnapshot = await _reviewRef.where('bookId', isEqualTo: bookId).get();
+      final reviewsSnapshot =
+      await _reviewRef.where('bookId', isEqualTo: bookId).get();
       for (var doc in reviewsSnapshot.docs) {
         await doc.reference.delete();
       }
@@ -93,37 +95,43 @@ class DatabaseService {
     }
   }
 
-  // ... Các hàm review ...
   Stream<BookModel> getBookStream(String bookId) {
     return _bookRef.doc(bookId).snapshots().map((doc) {
       if (doc.exists) {
-        return BookModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        return BookModel.fromMap(
+            doc.data() as Map<String, dynamic>, doc.id);
       } else {
-        return BookModel(id: 'error', title: 'Không tìm thấy', author: '', description: '', content: '', imageUrl: '', totalPages: 0, createdAt: DateTime.now());
+        return BookModel(
+          id: 'error',
+          title: 'Không tìm thấy',
+          author: '',
+          description: '',
+          content: '',
+          imageUrl: '',
+          totalPages: 0,
+          createdAt: DateTime.now(),
+        );
       }
     });
   }
 
-  // --- SỬA HÀM NÀY ĐỂ CẬP NHẬT SAO TRUNG BÌNH ---
-  Future<void> addReview(ReviewModel review, BookModel currentBook) async {
+  Future<void> addReview(
+      ReviewModel review, BookModel currentBook) async {
     try {
-      // 1. Lưu bài review
       await _reviewRef.doc(review.id).set(review.toMap());
-
-      // 2. Lấy dữ liệu mới nhất từ Firebase để tính toán (Tránh dùng dữ liệu cũ)
       DocumentSnapshot doc = await _bookRef.doc(currentBook.id).get();
       if (!doc.exists) return;
 
-      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      Map<String, dynamic> data =
+      doc.data() as Map<String, dynamic>;
       double serverRating = (data['rating'] ?? 0.0).toDouble();
       int serverCount = (data['reviewsCount'] ?? 0).toInt();
 
-      // 3. Tính điểm trung bình mới
-      double newRating = ((serverRating * serverCount) + review.rating) / (serverCount + 1);
-      // Làm tròn 1 chữ số thập phân
+      double newRating =
+          ((serverRating * serverCount) + review.rating) /
+              (serverCount + 1);
       newRating = double.parse(newRating.toStringAsFixed(1));
 
-      // 4. Cập nhật lại vào sách
       await _bookRef.doc(currentBook.id).update({
         'rating': newRating,
         'reviewsCount': serverCount + 1,
@@ -134,9 +142,70 @@ class DatabaseService {
     }
   }
 
+  // --- HÀM GET REVIEWS (ĐÃ TÁCH BIỆT) ---
   Stream<List<ReviewModel>> getReviews(String bookId) {
-    return _reviewRef.where('bookId', isEqualTo: bookId).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => ReviewModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    return _reviewRef
+        .where('bookId', isEqualTo: bookId)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) =>
+          ReviewModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
     });
+  }
+
+  // --- HÀM LƯU FLASHCARD AI (ĐÃ ĐƯA RA NGOÀI) ---
+  Future<void> saveAICreatedFlashcards(
+      String bookId, List<Map<String, dynamic>> flashcards) async {
+    try {
+      final CollectionReference flashRef =
+      _bookRef.doc(bookId).collection('flashcards');
+
+      for (var card in flashcards) {
+        await flashRef.add({
+          'question': card['question'],
+          'answer': card['answer'],
+          'createdAt': FieldValue.serverTimestamp(),
+          'nextReview': DateTime.now().millisecondsSinceEpoch,
+          'level': 'new',
+        });
+      }
+      print("✅ Đã lưu ${flashcards.length} câu hỏi AI vào Firebase");
+    } catch (e) {
+      print("❌ Lỗi lưu Flashcards: $e");
+      rethrow;
+    }
+  }
+
+  // --- CẬP NHẬT TRẠNG THÁI ÔN TẬP (THEO CODE BẠN GỬI) ---
+  Future<void> updateFlashcardLevel(
+      String bookId, String cardId, String level) async {
+    try {
+      DateTime now = DateTime.now();
+      int nextReview;
+
+      if (level == 'hard') {
+        nextReview =
+            now.add(const Duration(minutes: 10)).millisecondsSinceEpoch;
+      } else if (level == 'good') {
+        nextReview =
+            now.add(const Duration(days: 1)).millisecondsSinceEpoch;
+      } else {
+        nextReview =
+            now.add(const Duration(days: 4)).millisecondsSinceEpoch;
+      }
+
+      await _bookRef
+          .doc(bookId)
+          .collection('flashcards')
+          .doc(cardId)
+          .update({
+        'level': level,
+        'nextReview': nextReview,
+      });
+    } catch (e) {
+      print("❌ Lỗi: $e");
+    }
   }
 }

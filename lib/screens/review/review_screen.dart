@@ -1,6 +1,8 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
+import 'package:flip_card/flip_card.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/database_service.dart';
 
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key});
@@ -10,150 +12,407 @@ class ReviewScreen extends StatefulWidget {
 }
 
 class _ReviewScreenState extends State<ReviewScreen> {
-  bool _showAnswer = false; // false = Mặt trước, true = Mặt sau
+  final PageController _pageController = PageController();
+  List<DocumentSnapshot> _allCards = [];
+  List<DocumentSnapshot> _currentSessionCards = [];
+  bool _initialized = false;
+  bool _isFinished = false;
+  bool _canReviewToday = true;
+  String? _lastReviewDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndLoadCards();
+  }
+
+  Future<void> _checkAndLoadCards() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Lấy ngày review cuối cùng từ Firestore
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final lastReview = userDoc.data()?['lastReviewDate'] as String?;
+
+    // 🔥 Logic: reset vào 5h sáng
+    final now = DateTime.now();
+    final today5AM = DateTime(now.year, now.month, now.day, 5, 0);
+    final effectiveDate = now.isBefore(today5AM)
+        ? DateTime(now.year, now.month, now.day - 1).toIso8601String().split('T')[0]
+        : now.toIso8601String().split('T')[0];
+
+    final canReview = lastReview != effectiveDate;
+
+    setState(() {
+      _lastReviewDate = lastReview;
+      _canReviewToday = canReview;
+    });
+
+    // 🔥 LUÔN fetch thẻ mới từ Firebase (cho cả ngày mới và ôn lại)
+    await _loadCards();
+
+    setState(() {
+      _initialized = true;
+    });
+  }
+
+  Future<void> _loadCards() async {
+    // 🔥 Luôn fetch mới từ Firebase để có thẻ cập nhật nhất
+    final snapshot = await FirebaseFirestore.instance.collectionGroup('flashcards').get();
+    setState(() {
+      _allCards = List.from(snapshot.docs);
+
+      // Chỉ set currentSessionCards nếu đang cho phép review
+      if (_canReviewToday) {
+        _currentSessionCards = List.from(_allCards);
+        _currentSessionCards.shuffle(); // 🔥 Đảo thẻ
+      }
+    });
+  }
+
+  void _handleAssessment(String bookId, String cardId, String level, int index) async {
+    await DatabaseService().updateFlashcardLevel(bookId, cardId, level);
+
+    setState(() {
+      _currentSessionCards.removeAt(index);
+      if (_currentSessionCards.isEmpty) {
+        _isFinished = true;
+      }
+    });
+
+    // Reset PageView về trang đầu
+    if (_currentSessionCards.isNotEmpty) {
+      _pageController.jumpToPage(0);
+    }
+  }
+
+  void _restartSession() {
+    setState(() {
+      _currentSessionCards = List.from(_allCards);
+      _currentSessionCards.shuffle(); // 🔥 Đảo thẻ lại
+      _isFinished = false;
+      _canReviewToday = true; // Cho phép ôn lại
+    });
+    _pageController.jumpToPage(0);
+  }
+
+  Future<void> _finishAndExit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Lưu ngày hoàn thành review (theo logic 5h sáng)
+      final now = DateTime.now();
+      final today5AM = DateTime(now.year, now.month, now.day, 5, 0);
+      final effectiveDate = now.isBefore(today5AM)
+          ? DateTime(now.year, now.month, now.day - 1).toIso8601String().split('T')[0]
+          : now.toIso8601String().split('T')[0];
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({'lastReviewDate': effectiveDate}, SetOptions(merge: true));
+
+      // Set trạng thái đã xong hôm nay
+      setState(() {
+        _canReviewToday = false;
+        _isFinished = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Màu nền đổi theo trạng thái: Sáng (Câu hỏi) - Tối (Đáp án)
-    final backgroundColor = _showAnswer ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
-    final textColor = _showAnswer ? Colors.white : AppColors.textDark;
+    if (!_initialized) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
 
+    // Nếu đã review hôm nay → hiện màn chờ
+    if (!_canReviewToday) {
+      return _buildWaitScreen();
+    }
+
+    // Nếu hoàn thành → hiện màn kết thúc
+    if (_isFinished) {
+      return _buildFinishedScreen();
+    }
+
+    // Màn hình chính
     return Scaffold(
-      backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: const Color(0xFF0F172A),
+      appBar: AppBar(
+        title: const Text("Ôn tập", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          if (_currentSessionCards.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(right: 16, top: 12, bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+              child: Center(
+                child: Text(
+                  "${_currentSessionCards.length} thẻ",
+                  style: const TextStyle(color: Colors.yellow, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+        ],
+      ),
+      body: _buildCardView(),
+    );
+  }
+
+  Widget _buildCardView() {
+    return SafeArea(
+      bottom: true,
+      child: PageView.builder(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _currentSessionCards.length,
+        itemBuilder: (context, index) {
+          final data = _currentSessionCards[index].data() as Map<String, dynamic>;
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
+            child: FlipCard(
+              key: ValueKey(_currentSessionCards[index].id),
+              direction: FlipDirection.HORIZONTAL,
+              front: _cardSide(
+                data['question'] ?? "",
+                "CÂU HỎI",
+                const Color(0xFFF97316),
+              ),
+              back: Column(
                 children: [
-                  Text(
-                    "Ôn tập",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor),
+                  Expanded(
+                    child: _cardSide(
+                      data['answer'] ?? "",
+                      "ĐÁP ÁN",
+                      const Color(0xFF22C55E),
+                    ),
                   ),
-                  if (_showAnswer)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white24)),
-                      child: const Text("2 thẻ", style: TextStyle(color: AppColors.amber, fontSize: 12)),
-                    )
+                  const SizedBox(height: 12),
+                  _buildBottomButtons(_currentSessionCards[index], index),
                 ],
               ),
             ),
+          );
+        },
+      ),
+    );
+  }
 
-            // THẺ FLASHCARD (Hiệu ứng lật)
-            Expanded(
-              child: Center(
-                child: GestureDetector(
-                  onTap: () => setState(() => _showAnswer = !_showAnswer),
-                  child: TweenAnimationBuilder(
-                    tween: Tween<double>(begin: 0, end: _showAnswer ? pi : 0),
-                    duration: const Duration(milliseconds: 600),
-                    builder: (context, double val, child) {
-                      bool isFront = val < (pi / 2);
-                      return Transform(
-                        transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY(val),
-                        alignment: Alignment.center,
-                        child: isFront
-                            ? _buildCardSide(isFront: true)
-                            : Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()..rotateY(pi),
-                          child: _buildCardSide(isFront: false),
-                        ),
-                      );
-                    },
+  Widget _cardSide(String text, String label, Color labelColor) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: labelColor, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const Positioned(
+            bottom: 25,
+            left: 0,
+            right: 0,
+            child: Text("chạm để lật", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomButtons(DocumentSnapshot doc, int index) {
+    final cardId = doc.id;
+    final bookId = doc.reference.parent.parent!.id;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _scoreButton("Khó", Colors.redAccent, bookId, cardId, 'hard', index),
+          _scoreButton("Vừa", Colors.blueAccent, bookId, cardId, 'good', index),
+          _scoreButton("Dễ", Colors.greenAccent, bookId, cardId, 'easy', index),
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreButton(String label, Color color, String bookId, String cardId, String level, int index) {
+    return InkWell(
+      onTap: () => _handleAssessment(bookId, cardId, level, index),
+      child: Container(
+        width: 85,
+        height: 48,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Center(child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold))),
+      ),
+    );
+  }
+
+  Widget _buildFinishedScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.check_circle, color: Colors.greenAccent, size: 80),
+              const SizedBox(height: 20),
+              const Text(
+                "Hoàn thành!",
+                style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Bạn đã ôn xong ${_allCards.length} thẻ",
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              // Nút "Kết thúc"
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _finishAndExit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text(
+                    "Kết thúc",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // NÚT ĐÁNH GIÁ (Chỉ hiện khi lật mặt sau)
-            SizedBox(
-              height: 100,
-              child: _showAnswer
-                  ? Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
+  Widget _buildWaitScreen() {
+    // Tính thời gian đến 5h sáng ngày mai
+    final now = DateTime.now();
+    final tomorrow5AM = now.hour >= 5
+        ? DateTime(now.year, now.month, now.day + 1, 5, 0)
+        : DateTime(now.year, now.month, now.day, 5, 0);
+    final hoursLeft = tomorrow5AM.difference(now).inHours;
+    final minutesLeft = tomorrow5AM.difference(now).inMinutes % 60;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      appBar: AppBar(
+        title: const Text("Ôn tập", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.schedule, color: Colors.orangeAccent, size: 80),
+              const SizedBox(height: 20),
+              const Text(
+                "Hẹn gặp lại!",
+                style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Bạn đã hoàn thành ôn tập hôm nay",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
                   children: [
-                    _buildRateBtn("Khó", Colors.red.shade900, Colors.red),
-                    const SizedBox(width: 12),
-                    _buildRateBtn("Vừa", Colors.blue.shade900, Colors.blue),
-                    const SizedBox(width: 12),
-                    _buildRateBtn("Dễ", const Color(0xFF064E3B), Colors.green),
+                    FutureBuilder<int>(
+                      future: _getTotalCardsCount(),
+                      builder: (context, snapshot) {
+                        final count = snapshot.data ?? 0;
+                        return Text(
+                          "Tổng số thẻ: $count",
+                          style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.w600),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Quay lại sau: ${hoursLeft}h ${minutesLeft}p (5h sáng)",
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
                   ],
                 ),
-              )
-                  : null,
-            ),
-            const SizedBox(height: 130), // Bottom padding
-          ],
+              ),
+              const SizedBox(height: 40),
+              // Nút "Ôn tập lại" - Xào thẻ
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _restartSession,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text(
+                    "Ôn tập lại",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCardSide({required bool isFront}) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      height: MediaQuery.of(context).size.height * 0.55,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))
-        ],
-      ),
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            isFront ? "CÂU HỎI" : "ĐÁP ÁN",
-            style: TextStyle(
-              color: isFront ? AppColors.amber : Colors.green,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Text(
-            isFront ? "Hệ thống trong một tư duy là gì?" : "Hoạt động tự động, nhanh chóng và ít nỗ lực.",
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-              height: 1.4,
-            ),
-          ),
-          if (isFront) ...[
-            const Spacer(),
-            Text("chạm để lật", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-          ]
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRateBtn(String text, Color bg, Color border) {
-    return Expanded(
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: bg.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border.withOpacity(0.5)),
-        ),
-        child: Center(
-            child: Text(text, style: TextStyle(color: border, fontWeight: FontWeight.bold))),
-      ),
-    );
+  Future<int> _getTotalCardsCount() async {
+    final snapshot = await FirebaseFirestore.instance.collectionGroup('flashcards').get();
+    return snapshot.docs.length;
   }
 }
