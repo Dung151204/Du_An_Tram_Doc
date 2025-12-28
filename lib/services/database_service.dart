@@ -23,7 +23,7 @@ class DatabaseService {
     }
   }
 
-  // 2. Lấy sách (SỬA ĐỂ HIỆN SÁCH NGAY)
+  // 2. Lấy sách (GIỮ NGUYÊN - Đã ẩn orderBy)
   Stream<List<BookModel>> getBooks() {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const Stream.empty();
@@ -93,7 +93,7 @@ class DatabaseService {
     }
   }
 
-  // ... Các hàm review (GIỮ NGUYÊN) ...
+  // ... Các hàm review ...
   Stream<BookModel> getBookStream(String bookId) {
     return _bookRef.doc(bookId).snapshots().map((doc) {
       if (doc.exists) {
@@ -104,8 +104,34 @@ class DatabaseService {
     });
   }
 
+  // --- SỬA HÀM NÀY ĐỂ CẬP NHẬT SAO TRUNG BÌNH ---
   Future<void> addReview(ReviewModel review, BookModel currentBook) async {
-    await _reviewRef.doc(review.id).set(review.toMap());
+    try {
+      // 1. Lưu bài review
+      await _reviewRef.doc(review.id).set(review.toMap());
+
+      // 2. Lấy dữ liệu mới nhất từ Firebase để tính toán (Tránh dùng dữ liệu cũ)
+      DocumentSnapshot doc = await _bookRef.doc(currentBook.id).get();
+      if (!doc.exists) return;
+
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      double serverRating = (data['rating'] ?? 0.0).toDouble();
+      int serverCount = (data['reviewsCount'] ?? 0).toInt();
+
+      // 3. Tính điểm trung bình mới
+      double newRating = ((serverRating * serverCount) + review.rating) / (serverCount + 1);
+      // Làm tròn 1 chữ số thập phân
+      newRating = double.parse(newRating.toStringAsFixed(1));
+
+      // 4. Cập nhật lại vào sách
+      await _bookRef.doc(currentBook.id).update({
+        'rating': newRating,
+        'reviewsCount': serverCount + 1,
+      });
+    } catch (e) {
+      print("❌ Lỗi lưu review: $e");
+      rethrow;
+    }
   }
 
   Stream<List<ReviewModel>> getReviews(String bookId) {
