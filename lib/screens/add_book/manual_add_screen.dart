@@ -2,10 +2,9 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
-import '../../services/database_service.dart';
+import 'book_add_preview_screen.dart';
 
 class ManualAddScreen extends StatefulWidget {
   const ManualAddScreen({super.key});
@@ -19,11 +18,11 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
   final _authorController = TextEditingController();
   final _pagesController = TextEditingController();
   final _descController = TextEditingController();
-  final _contentController = TextEditingController(); // <--- MỚI: Controller cho nội dung sách
+  final _contentController = TextEditingController();
 
   File? _selectedImage;
-  bool _isLoading = false;
   late int _randomColor;
+  double _initialRating = 4.5; // Mặc định cho điểm cao để dễ test
 
   @override
   void initState() {
@@ -39,46 +38,38 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     } catch (e) { print(e); }
   }
 
-  Future<void> _handleSaveBook() async {
+  void _handleNextStep() {
     if (_titleController.text.trim().isEmpty || _authorController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thiếu tên sách hoặc tác giả!'), backgroundColor: Colors.orange));
       return;
     }
 
-    // Kiểm tra xem có nhập nội dung không (Tùy chọn)
-    if (_contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lưu ý: Bạn chưa nhập nội dung sách để đọc!'), backgroundColor: Colors.amber));
-    }
+    String bookId = DateTime.now().millisecondsSinceEpoch.toString();
+    String imagePath = _selectedImage != null ? _selectedImage!.path : "";
 
-    setState(() => _isLoading = true);
+    final tempBook = BookModel(
+      id: bookId,
+      title: _titleController.text.trim(),
+      author: _authorController.text.trim(),
+      description: _descController.text.trim(),
+      content: _contentController.text,
+      totalPages: int.tryParse(_pagesController.text) ?? 0,
+      imageUrl: imagePath,
+      colorValue: _randomColor,
+      createdAt: DateTime.now(),
+      rating: _initialRating, // <--- LƯU ĐIỂM ĐÁNH GIÁ VÀO ĐÂY
+      reviewsCount: 1, // Giả vờ đã có 1 đánh giá
+    );
 
-    try {
-      String bookId = DateTime.now().millisecondsSinceEpoch.toString();
-      String imagePath = _selectedImage != null ? _selectedImage!.path : "";
-
-      final newBook = BookModel(
-        id: bookId,
-        title: _titleController.text.trim(),
-        author: _authorController.text.trim(),
-        description: _descController.text.trim(),
-        content: _contentController.text, // <--- LƯU NỘI DUNG VÀO ĐÂY
-        totalPages: int.tryParse(_pagesController.text) ?? 0,
-        imageUrl: imagePath,
-        colorValue: _randomColor,
-        createdAt: DateTime.now(),
-      );
-
-      await DatabaseService().addBook(newBook);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Đã thêm sách và nội dung!'), backgroundColor: Colors.green));
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookAddPreviewScreen(
+          book: tempBook,
+          imageFile: _selectedImage,
+        ),
+      ),
+    );
   }
 
   @override
@@ -88,7 +79,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(icon: const Icon(LucideIcons.x, color: Colors.black), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: const Icon(Icons.close, color: Colors.black), onPressed: () => Navigator.pop(context)),
         title: const Text("Nhập sách mới", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
@@ -96,7 +87,6 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // 1. Ảnh
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -106,12 +96,11 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                   borderRadius: BorderRadius.circular(12),
                   image: _selectedImage != null ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover) : null,
                 ),
-                child: _selectedImage == null ? const Center(child: Icon(LucideIcons.imagePlus, color: Colors.white, size: 32)) : null,
+                child: _selectedImage == null ? const Center(child: Icon(Icons.add_photo_alternate, color: Colors.white, size: 32)) : null,
               ),
             ),
             const SizedBox(height: 32),
 
-            // 2. Thông tin cơ bản
             _buildInput("Tên sách", _titleController),
             const SizedBox(height: 16),
             _buildInput("Tác giả", _authorController),
@@ -122,25 +111,45 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
               Expanded(child: _buildInput("Thể loại", _descController)),
             ]),
 
+            const SizedBox(height: 16),
+            // --- THANH CHỌN ĐIỂM ĐÁNH GIÁ (MỚI) ---
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Đánh giá ban đầu", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                    Row(children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
+                      Text(" $_initialRating", style: const TextStyle(fontWeight: FontWeight.bold))
+                    ]),
+                  ],
+                ),
+                Slider(
+                  value: _initialRating,
+                  min: 1.0, max: 5.0, divisions: 8,
+                  activeColor: AppColors.primary,
+                  onChanged: (val) => setState(() => _initialRating = val),
+                )
+              ],
+            ),
+
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
 
-            // 3. Ô NHẬP NỘI DUNG SÁCH (MỚI)
-            Align(alignment: Alignment.centerLeft, child: Text("Nội dung sách (Paste vào đây để đọc)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark))),
+            Align(alignment: Alignment.centerLeft, child: Text("Nội dung sách", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark))),
             const SizedBox(height: 8),
             Container(
-              height: 200, // Cao hơn để dễ nhập nhiều chữ
+              height: 150,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
               child: TextField(
                 controller: _contentController,
-                maxLines: null, // Cho phép xuống dòng thoải mái
+                maxLines: null,
                 keyboardType: TextInputType.multiline,
-                decoration: const InputDecoration(
-                  hintText: "Sao chép và dán nội dung chương truyện hoặc sách vào đây...",
-                  border: InputBorder.none,
-                ),
+                decoration: const InputDecoration(hintText: "Paste nội dung vào đây...", border: InputBorder.none),
               ),
             ),
 
@@ -149,8 +158,8 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
               width: double.infinity, height: 56,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                onPressed: _isLoading ? null : _handleSaveBook,
-                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Lưu lại", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                onPressed: _handleNextStep,
+                child: const Text("Tiếp theo", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ),
           ],

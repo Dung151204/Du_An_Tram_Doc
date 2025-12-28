@@ -1,11 +1,12 @@
 // File: lib/screens/home/home_screen.dart
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart'; // Nếu lỗi Lucide thì đổi thành Icons thường như mình đã chỉ
+// import 'package:lucide_icons/lucide_icons.dart'; // (Giữ nguyên hoặc bỏ nếu không dùng)
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
 import '../../services/database_service.dart';
-import '../book_details/book_detail_screen.dart'; // <--- Đã kết nối màn hình Chi Tiết
+import '../book_details/book_detail_screen.dart';
 import '../book_details/book_preview_screen.dart';
+import '../add_book/search_add_screen.dart'; // <--- 1. MỚI THÊM: Import màn hình tìm kiếm
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +18,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _currentTab = 'reading';
 
-  // Dữ liệu giả cho tab Khám phá
+  // Dữ liệu giả cho tab Khám phá (Giữ nguyên của bạn)
   final List<Map<String, dynamic>> _discoveryBooks = [
     {"title": "Tư duy nhanh chậm", "author": "Daniel Kahneman", "rating": 4.7, "total": 400, "color": const Color(0xFFC2410C)},
     {"title": "Sapiens", "author": "Yuval Noah Harari", "rating": 4.9, "total": 512, "color": const Color(0xFFEAB308)},
@@ -29,6 +30,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+
+      // --- 2. MỚI THÊM: Nút bấm dấu cộng (+) ---
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: () {
+          // Bấm vào đây sẽ mở màn hình Tìm kiếm -> Từ đó mới có nút nhập tay
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SearchAddScreen()),
+          );
+        },
+      ),
+      // ------------------------------------------
+
       body: SafeArea(
         child: Column(
           children: [
@@ -42,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildTabSwitcher(),
                     const SizedBox(height: 24),
 
-                    // Logic hiển thị theo Tab
+                    // Logic hiển thị theo Tab (Giữ nguyên)
                     if (_currentTab == 'reading')
                       _buildReadingListRealtime()
                     else
@@ -59,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- 1. DANH SÁCH SÁCH TỪ FIREBASE (Sửa lỗi bấm không ăn tại đây) ---
+  // --- CÁC PHẦN DƯỚI ĐÂY GIỮ NGUYÊN KHÔNG ĐỔI ---
+
   Widget _buildReadingListRealtime() {
     return StreamBuilder<List<BookModel>>(
       stream: DatabaseService().getBooks(),
@@ -94,16 +111,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Card sách thật
   Widget _buildRealBookCard(BookModel book) {
     double progress = book.totalPages > 0 ? (book.currentPage / book.totalPages) : 0;
 
     return GestureDetector(
-      // --- SỬA LỖI: Đã thêm sự kiện bấm vào đây ---
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => BookDetailScreen(book: book)), // Chuyển sang trang Chi tiết
+          MaterialPageRoute(builder: (context) => BookDetailScreen(book: book)),
         );
       },
       child: Container(
@@ -118,7 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ảnh bìa
             Container(
               width: 70, height: 100,
               decoration: BoxDecoration(
@@ -130,14 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: book.imageUrl.isNotEmpty
                     ? (book.imageUrl.startsWith('http')
                     ? Image.network(book.imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.book, color: Colors.white))
-                // Nếu là đường dẫn ảnh trong máy (khi test máy ảo có thể lỗi ảnh nhưng ko sao)
                     : const Center(child: Icon(Icons.image, color: Colors.white)))
                     : const Center(child: Icon(Icons.book, color: Colors.white)),
               ),
             ),
             const SizedBox(width: 16),
-
-            // Thông tin
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,8 +170,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // --- 2. CÁC WIDGET PHỤ (HEADER, TAB, DISCOVERY) ---
 
   Widget _buildDiscoveryList() {
     return Column(

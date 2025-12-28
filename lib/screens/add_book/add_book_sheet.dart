@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
 import 'manual_add_screen.dart';
 import 'qr_scan_screen.dart';
-import 'search_book_screen.dart';
+import 'search_add_screen.dart'; // <--- 1. SỬA IMPORT (Trỏ vào file mới)
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -27,32 +26,29 @@ class AddBookSheet extends StatelessWidget {
 
           Row(
             children: [
-              _buildBtn(context, LucideIcons.scanLine, "Quét mã", Colors.amber.shade100.withOpacity(0.5), Colors.orange, () {
-                Navigator.pop(context); // 1. Đóng cái menu lại trước
-                // 2. Mở màn hình Quét QR lên
+              // Nút Quét mã (Đã thay icon chuẩn)
+              _buildBtn(context, Icons.qr_code_scanner, "Quét mã", Colors.amber.shade100.withOpacity(0.5), Colors.orange, () {
+                Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScanScreen()));
               }),
               const SizedBox(width: 16),
 
               // Nút Tìm kiếm
-              _buildBtn(context, LucideIcons.search, "Tìm kiếm", Colors.blue.shade100.withOpacity(0.5), Colors.blue, () {
-                Navigator.pop(context); // Đóng menu
-                // Chuyển sang màn hình Tìm kiếm
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchBookScreen()));
+              _buildBtn(context, Icons.search, "Tìm kiếm", Colors.blue.shade100.withOpacity(0.5), Colors.blue, () {
+                Navigator.pop(context);
+                // 2. SỬA ĐƯỜNG DẪN (Chuyển sang SearchAddScreen)
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchAddScreen()));
               }),
             ],
           ),
           const SizedBox(height: 20),
 
           // Nút Nhập thủ công
-          // ...
           GestureDetector(
             onTap: () {
-              Navigator.pop(context); // Đóng menu
-              // Chuyển sang màn hình mới
+              Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualAddScreen()));
             },
-// ...
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
@@ -63,7 +59,8 @@ class AddBookSheet extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  Icon(LucideIcons.edit3, size: 20, color: AppColors.textDark),
+                  // Đã thay icon chuẩn
+                  Icon(Icons.edit_note, size: 24, color: AppColors.textDark),
                   SizedBox(width: 10),
                   Text("Nhập thủ công", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                 ],
