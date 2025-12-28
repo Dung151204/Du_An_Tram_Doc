@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ReviewModel {
   final String id;
   final String bookId;
   final String userId;
-  final String userName; // Lưu tên người dùng để hiển thị cho nhanh
+  final String userName;
   final double rating;
   final String comment;
   final DateTime createdAt;
@@ -17,7 +19,6 @@ class ReviewModel {
     required this.createdAt,
   });
 
-  // Chuyển đổi sang Map để gửi lên Firebase
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -26,21 +27,20 @@ class ReviewModel {
       'userName': userName,
       'rating': rating,
       'comment': comment,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  // Nhận dữ liệu từ Firebase về App
-  factory ReviewModel.fromMap(Map<String, dynamic> map, String documentId) {
+  factory ReviewModel.fromMap(Map<String, dynamic> map, String id) {
     return ReviewModel(
-      id: documentId,
+      id: id,
       bookId: map['bookId'] ?? '',
       userId: map['userId'] ?? '',
       userName: map['userName'] ?? 'Ẩn danh',
-      rating: (map['rating'] ?? 0.0).toDouble(),
+      rating: (map['rating'] is int) ? (map['rating'] as int).toDouble() : (map['rating'] ?? 0.0),
       comment: map['comment'] ?? '',
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'])
+      createdAt: map['createdAt'] is Timestamp
+          ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
   }

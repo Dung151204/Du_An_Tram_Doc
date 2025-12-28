@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/book_model.dart'; // Import model
 import '../../models/review_model.dart';
 import '../../services/database_service.dart';
 
@@ -36,12 +37,30 @@ class _RatingScreenState extends State<RatingScreen> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      // Lấy ID sách an toàn
-      String bookId = (widget.book is Map) ? widget.book['id'] ?? 'unknown' : widget.book.id ?? 'unknown';
+
+      // Xử lý dữ liệu Book để lấy đúng ID và Rating cũ
+      BookModel bookData;
+      if (widget.book is BookModel) {
+        bookData = widget.book;
+      } else {
+        // Nếu là Map (từ màn hình tìm kiếm), chuyển đổi sang BookModel tạm
+        bookData = BookModel(
+          id: widget.book['id'],
+          title: widget.book['title'] ?? '',
+          author: widget.book['author'] ?? '',
+          description: '', content: '', imageUrl: '',
+          totalPages: 0, createdAt: DateTime.now(),
+          // Quan trọng: Lấy đúng rating và reviewsCount để tính toán
+          rating: (widget.book['rating'] is int)
+              ? (widget.book['rating'] as int).toDouble()
+              : (widget.book['rating'] ?? 0.0),
+          reviewsCount: widget.book['reviewsCount'] ?? 0,
+        );
+      }
 
       final newReview = ReviewModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        bookId: bookId,
+        bookId: bookData.id ?? "unknown",
         userId: user?.uid ?? "guest",
         userName: user?.displayName ?? "Người dùng ẩn danh",
         rating: _currentRating,
@@ -49,7 +68,8 @@ class _RatingScreenState extends State<RatingScreen> {
         createdAt: DateTime.now(),
       );
 
-      await DatabaseService().addReview(newReview);
+      // Gọi hàm mới có truyền bookData để tính điểm
+      await DatabaseService().addReview(newReview, bookData);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Đã gửi đánh giá!"), backgroundColor: Colors.green));
