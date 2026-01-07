@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../models/book_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../core/constants/app_colors.dart';
 import '../../services/database_service.dart';
-import '../book_details/book_detail_screen.dart';
-import '../book_details/book_preview_screen.dart';
+import '../../models/book_model.dart';
+import 'library_screen.dart';
+import 'note_book_selection_screen.dart';
+import 'physical_book_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,232 +17,299 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _currentTab = 'reading';
-
-  // Dữ liệu giả tab Khám phá
-  final List<Map<String, dynamic>> _discoveryBooks = [
-    {"title": "Nhà Giả Kim", "author": "Paulo Coelho", "rating": 4.8, "total": 228, "color": const Color(0xFFF59E0B)},
-    {"title": "Đắc Nhân Tâm", "author": "Dale Carnegie", "rating": 4.9, "total": 320, "color": const Color(0xFFEF4444)},
-    {"title": "Dám Bị Ghét", "author": "Kishimi Ichiro", "rating": 4.5, "total": 300, "color": const Color(0xFF3B82F6)},
-    {"title": "Sapiens", "author": "Yuval Noah Harari", "rating": 4.7, "total": 512, "color": const Color(0xFF10B981)},
-  ];
+  final User? user = FirebaseAuth.instance.currentUser;
 
   @override
   Widget build(BuildContext context) {
-    // SỬA: Giữ lại Scaffold để có màu nền, nhưng XÓA bottomNavigationBar
+    // Lấy tên người dùng hoặc mặc định
+    String displayName = user?.displayName ?? "Bạn";
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-
-      // --- PHẦN BODY GIỮ NGUYÊN ---
+      backgroundColor: const Color(0xFFF1F5F9), // Màu nền xám xanh hiện đại
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTabSwitcher(),
-                    const SizedBox(height: 24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. HEADER CHÀO MỪNG
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getGreeting(),
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        displayName,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textDark),
+                      ),
+                    ],
+                  ),
+                  // Avatar giả lập
+                  Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+                      image: const DecorationImage(image: NetworkImage("https://i.pravatar.cc/150?img=11")), // Ảnh mẫu
+                    ),
+                  )
+                ],
+              ),
 
-                    if (_currentTab == 'reading')
-                      StreamBuilder<List<BookModel>>(
-                        stream: DatabaseService().getBooks(),
-                        builder: (context, snapshot) {
-                          int count = snapshot.hasData ? snapshot.data!.length : 0;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Tủ sách ($count)", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                              const SizedBox(height: 16),
-                              if (snapshot.hasData)
-                                ...snapshot.data!.map((book) => _buildRealBookCard(book)),
-                            ],
-                          );
-                        },
-                      )
-                    else
-                      Column(
+              const SizedBox(height: 32),
+
+              const Text("Quản lý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+              const SizedBox(height: 16),
+
+              // 2. MODULE 1: THƯ VIỆN THÔNG MINH
+              // Dùng StreamBuilder để đếm tổng số sách
+              StreamBuilder<List<BookModel>>(
+                stream: DatabaseService().getBooks(),
+                builder: (context, snapshot) {
+                  int totalBooks = snapshot.data?.length ?? 0;
+                  return _buildModernCard(
+                    context,
+                    title: "Thư viện thông minh",
+                    subtitle: "Quản lý 3 kệ sách & Tiến độ đọc",
+                    stat: "$totalBooks cuốn",
+                    icon: LucideIcons.library,
+                    gradientColors: [Colors.blue.shade400, Colors.blue.shade700],
+                    shadowColor: Colors.blue.withOpacity(0.3),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen())),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // 3. MODULE 2: QUẢN LÝ SÁCH GIẤY
+              // Dùng StreamBuilder để đếm sách đang cho mượn
+              StreamBuilder<List<BookModel>>(
+                stream: DatabaseService().getBooks(),
+                builder: (context, snapshot) {
+                  final books = snapshot.data ?? [];
+                  int lentCount = books.where((b) => b.lentTo.isNotEmpty).length;
+
+                  return _buildModernCard(
+                    context,
+                    title: "Quản lý Sách giấy",
+                    subtitle: "Vị trí lưu trữ & Theo dõi mượn",
+                    stat: lentCount > 0 ? "Đang cho mượn: $lentCount" : "Tất cả sách đang ở nhà",
+                    icon: LucideIcons.mapPin,
+                    gradientColors: [Colors.orange.shade400, Colors.deepOrange.shade600],
+                    shadowColor: Colors.orange.withOpacity(0.3),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PhysicalBookScreen())),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 30),
+              // MODULE 3: GHI CHÚ CHỦ ĐỘNG (Mới)
+              _buildModuleCard(
+                context,
+                title: "Ghi chú Chủ động",
+                subtitle: "Note theo trang & Scan text (OCR).\nTổng hợp 3-5 ý tưởng cốt lõi.",
+                icon: LucideIcons.stickyNote,
+                color: Colors.purple.shade600,
+                onTap: () {
+                  // Mở màn hình chọn sách trước khi vào ghi chú
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const NoteBookSelectionScreen()));
+                },
+              ),
+
+              // 4. MỘT CHÚT TRANG TRÍ (Tip of the day)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B), // Màu tối
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.sparkles, color: Colors.amber, size: 30),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("Gợi ý cho bạn", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                          const SizedBox(height: 16),
-                          ..._discoveryBooks.map((book) => _buildRealBookCardFromMap(book)),
+                          Text("Mẹo nhỏ", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          SizedBox(height: 4),
+                          Text("Đọc 20 trang mỗi ngày giúp bạn hoàn thành 12 cuốn sách/năm!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ],
                       ),
-
-                    const SizedBox(height: 80),
+                    )
                   ],
                 ),
-              ),
-            ),
-          ],
+              )
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // --- CÁC WIDGET CON (GIỮ NGUYÊN KHÔNG ĐỔI) ---
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Chào buổi tối", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
-            const SizedBox(height: 4),
-            const Text("Tiến Dũng", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF1E293B)))
-          ]),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-            child: const Text("TD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabSwitcher() {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      padding: const EdgeInsets.all(6),
-      child: Row(children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _currentTab = 'reading'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: _currentTab == 'reading' ? const Color(0xFF1E293B) : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text("Đang đọc", textAlign: TextAlign.center, style: TextStyle(color: _currentTab == 'reading' ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ),
-        Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _currentTab = 'discovery'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: _currentTab == 'discovery' ? const Color(0xFF1E293B) : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text("Khám phá", textAlign: TextAlign.center, style: TextStyle(color: _currentTab == 'discovery' ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ),
-      ]),
-    );
-  }
-
-  Widget _buildRealBookCard(BookModel book) {
-    double percent = book.totalPages > 0 ? (book.currentPage / book.totalPages) : 0.0;
-    int percentInt = (percent * 100).toInt();
-
+  // Widget thẻ Card hiện đại
+  Widget _buildModernCard(BuildContext context, {
+    required String title,
+    required String subtitle,
+    required String stat,
+    required IconData icon,
+    required List<Color> gradientColors,
+    required Color shadowColor,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookDetailScreen(book: book))),
+      onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        height: 140, // Chiều cao cố định cho đẹp
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 15,
-                offset: const Offset(0, 5)
-            )
+              color: const Color(0xFFCBD5E1).withOpacity(0.3), // Bóng màu xám xanh
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
           ],
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 80, height: 110,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey.shade200),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: book.imageUrl.isNotEmpty && book.imageUrl.startsWith('http')
-                    ? Image.network(book.imageUrl, fit: BoxFit.cover)
-                    : Center(child: Icon(Icons.menu_book, color: book.coverColor ?? Colors.orange, size: 40)),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(book.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black87)),
-                  const SizedBox(height: 4),
-                  Text(book.author, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(value: percent, backgroundColor: Colors.grey.shade100, color: Colors.orange, minHeight: 6),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.local_fire_department, size: 16, color: Colors.orange),
-                      Text(" $percentInt%", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
-                    ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              // Background trang trí mờ nhạt
+              Positioned(
+                right: -20,
+                top: -20,
+                child: Container(
+                  width: 100, height: 100,
+                  decoration: BoxDecoration(
+                    color: gradientColors.last.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 4),
-                  Text("${book.totalPages} trang", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade300)),
-                ],
+                ),
               ),
-            )
-          ],
+
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    // Icon Box với Gradient
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(color: shadowColor, blurRadius: 10, offset: const Offset(0, 4))
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 20),
+
+                    // Nội dung chữ
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                          const SizedBox(height: 4),
+                          Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500), maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 12),
+                          // Badge thống kê
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: gradientColors.first.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              stat,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: gradientColors.last),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+
+                    Icon(Icons.chevron_right, color: Colors.grey.shade300),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildRealBookCardFromMap(Map<String, dynamic> book) {
+  String _getGreeting() {
+    var hour = DateTime.now().hour;
+    if (hour < 12) return 'Chào buổi sáng ☀️';
+    if (hour < 18) return 'Chào buổi chiều 🌤️';
+    return 'Chào buổi tối 🌙';
+  }
+  // Dán đoạn này vào cuối class HomeScreen, trước dấu } đóng
+  Widget _buildModuleCard(BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookPreviewScreen(book: book))),
+      onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.only(bottom: 20), // Cách dưới 1 chút cho đẹp
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 80, height: 110,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: book['color']),
-              alignment: Alignment.center,
-              child: const Icon(Icons.menu_book, color: Colors.white, size: 40),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 32),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(book['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black87)),
-                  const SizedBox(height: 4),
-                  Text(book['author'], style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
-                  const SizedBox(height: 20),
-                  Row(children: [
-                    const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                    Text(" ${book['rating']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    Text("${book['total']} trang", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ])
+                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  const SizedBox(height: 8),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textGrey, height: 1.5)),
                 ],
               ),
-            )
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade300),
           ],
         ),
       ),

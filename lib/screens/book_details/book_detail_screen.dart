@@ -7,7 +7,7 @@ import '../../services/database_service.dart';
 import '../reading/reading_screen.dart';
 import 'rating_screen.dart';
 import '../../services/ai_service.dart';
-
+import '../../screens/reading/smart_reading_screen.dart';
 class BookDetailScreen extends StatelessWidget {
   final BookModel initialBook;
   const BookDetailScreen({super.key, required this.book}) : initialBook = book;
@@ -180,14 +180,31 @@ class BookDetailScreen extends StatelessWidget {
                                     BorderRadius.circular(16)),
                                 elevation: 0,
                               ),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ReadingScreen(
-                                      bookTitle: currentBook.title,
-                                      content: currentBook.content),
-                                ),
-                              ),
+                              // ... Tìm đến nút "Đọc ngay"
+                              onPressed: () {
+                                // SỬA LỖI: Dùng biến 'currentBook' thay vì 'widget.book'
+
+                                // 1. Kiểm tra nếu có file PDF -> Mở màn hình Đọc Thông Minh
+                                if (currentBook.assetPath != null && currentBook.assetPath!.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SmartReadingScreen(book: currentBook),
+                                    ),
+                                  );
+                                }
+                                // 2. Nếu không có PDF -> Mở màn hình đọc Text cũ (ReadingScreen)
+                                else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ReadingScreen(
+                                          bookTitle: currentBook.title,
+                                          content: currentBook.content),
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                           ),
                         ),

@@ -5,7 +5,7 @@ class BookModel {
   final String title;
   final String author;
   final String description;
-  final String content;     // Giữ nguyên của bạn
+  final String content;
   final String imageUrl;
   final int? colorValue;
   final int totalPages;
@@ -14,11 +14,15 @@ class BookModel {
   final int reviewsCount;
   final DateTime createdAt;
 
-  // --- PHẦN BẮT BUỘC PHẢI THÊM ĐỂ SỬA LỖI ---
-  final String? userId; // Để biết sách của ai
-  final bool isPublic;  // Để chỉnh chế độ Riêng tư/Công khai
-  final String status;  // Để biết đang đọc hay đã xong
-  // ------------------------------------------
+  // --- CÁC TRƯỜNG MỞ RỘNG (ĐẦY ĐỦ) ---
+  final String? userId;
+  final bool isPublic;
+  final String readingStatus;     // Trạng thái đọc
+  final String physicalLocation;  // Vị trí sách giấy
+  final String lentTo;            // Cho ai mượn
+  final String? assetPath;        // Đường dẫn PDF offline
+  final List<String> keyTakeaways; // <--- ĐÃ THÊM LẠI TRƯỜNG NÀY (Để sửa lỗi)
+  // -----------------------------------
 
   BookModel({
     this.id,
@@ -34,11 +38,14 @@ class BookModel {
     this.reviewsCount = 0,
     required this.createdAt,
 
-    // --- THÊM VÀO CONSTRUCTOR ---
+    // Constructor đầy đủ
     this.userId,
-    this.isPublic = false, // Mặc định là riêng tư
-    this.status = 'reading',
-    // ----------------------------
+    this.isPublic = false,
+    this.readingStatus = 'reading',
+    this.physicalLocation = '',
+    this.lentTo = '',
+    this.assetPath,
+    this.keyTakeaways = const [], // Mặc định là danh sách rỗng
   });
 
   Color? get coverColor => colorValue != null ? Color(colorValue!) : null;
@@ -57,11 +64,14 @@ class BookModel {
       'reviewsCount': reviewsCount,
       'createdAt': createdAt.millisecondsSinceEpoch,
 
-      // --- THÊM VÀO ĐỂ LƯU LÊN FIREBASE ---
+      // Lưu tất cả lên Firebase
       'userId': userId,
       'isPublic': isPublic,
-      'status': status,
-      // ------------------------------------
+      'readingStatus': readingStatus,
+      'physicalLocation': physicalLocation,
+      'lentTo': lentTo,
+      'assetPath': assetPath,
+      'keyTakeaways': keyTakeaways, // <--- Lưu mảng này
     };
   }
 
@@ -76,17 +86,24 @@ class BookModel {
       colorValue: map['colorValue'],
       totalPages: map['totalPages']?.toInt() ?? 0,
       currentPage: map['currentPage']?.toInt() ?? 0,
-      rating: (map['rating'] ?? 0.0).toDouble(),
+      rating: (map['rating'] is int)
+          ? (map['rating'] as int).toDouble()
+          : (map['rating'] ?? 0.0).toDouble(),
       reviewsCount: map['reviewsCount']?.toInt() ?? 0,
       createdAt: map['createdAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
           : DateTime.now(),
 
-      // --- THÊM VÀO ĐỂ ĐỌC VỀ KHÔNG BỊ LỖI ---
+      // Đọc về
       userId: map['userId'],
       isPublic: map['isPublic'] ?? false,
-      status: map['status'] ?? 'reading',
-      // ---------------------------------------
+      readingStatus: map['readingStatus'] ?? 'reading',
+      physicalLocation: map['physicalLocation'] ?? '',
+      lentTo: map['lentTo'] ?? '',
+      assetPath: map['assetPath'],
+
+      // Đọc mảng Key Takeaways an toàn
+      keyTakeaways: List<String>.from(map['keyTakeaways'] ?? []),
     );
   }
 }
