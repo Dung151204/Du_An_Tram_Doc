@@ -79,4 +79,23 @@ Yêu cầu kết quả trả về: Chỉ trả về mã JSON nguyên bản là m
       return [];
     }
   }
+  // --- THÊM HÀM NÀY VÀO CUỐI CLASS ---
+  Future<List<Map<String, dynamic>>> generateQuizFromProgress(BookModel book, int currentPage) async {
+    // Demo: Giả lập AI trả về câu hỏi sau 2 giây (để không bị lỗi API)
+    await Future.delayed(const Duration(seconds: 2));
+
+    return [
+      {
+        "question": "Dựa trên nội dung đến trang $currentPage, tại sao nhân vật chính lại quyết định rời bỏ quê hương?",
+        "answer": "Vì anh ấy muốn tìm kiếm kho báu trong giấc mơ.",
+        "options": ["Tìm kho báu", "Chạy trốn nợ nần", "Đi du lịch", "Tìm người yêu"]
+      },
+      {
+        "question": "Chi tiết quan trọng nào xuất hiện ở trang ${currentPage - 5}?",
+        "answer": "Cuộc gặp gỡ định mệnh với nhà vua.",
+        "options": ["Gặp nhà vua", "Nhặt được tiền", "Mất đàn cừu", "Bị ốm"]
+      }
+    ];
+  }
+// ------------------------------------
 }

@@ -208,4 +208,14 @@ class DatabaseService {
       print("❌ Lỗi: $e");
     }
   }
+  // Hàm cập nhật thông tin sách (Dùng cho trả sách, sửa vị trí...)
+  Future<void> updateBook(String bookId, Map<String, dynamic> data) async {
+    try {
+      await _firestore.collection('books').doc(bookId).update(data);
+    } catch (e) {
+      print("Lỗi updateBook: $e");
+      rethrow;
+    }
+  }
+
 }
