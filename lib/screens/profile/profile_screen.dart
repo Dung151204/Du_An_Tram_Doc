@@ -1,11 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Thư viện Firebase
+
+// [ĐÃ SỬA] Đường dẫn đúng để tìm file Login (Thoát ra khỏi thư mục profile -> vào thư mục auth)
+import '../auth/login_screen.dart';
+
 import '../../../core/constants/app_colors.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   static const Color _redForLogout = Color(0xFFEF4444);
+
+  // --- HÀM XỬ LÝ ĐĂNG XUẤT ---
+  void _handleLogout(BuildContext context) async {
+    try {
+      // 1. Đăng xuất khỏi Firebase
+      await FirebaseAuth.instance.signOut();
+
+      // 2. Kiểm tra context còn tồn tại không trước khi chuyển trang
+      if (context.mounted) {
+        // 3. Chuyển về màn hình Login và XÓA HẾT lịch sử các màn hình cũ
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Lỗi đăng xuất: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +47,7 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              _buildProfileCard(),
+              _buildProfileCard(context), // Truyền context vào để dùng cho nút Logout
               const SizedBox(height: 32),
               _buildFriendsSection(),
               const SizedBox(height: 120),
@@ -51,16 +79,17 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget MỚI: Card chứa toàn bộ thông tin Hồ sơ ---
-  Widget _buildProfileCard() {
+  // --- Widget: Card chứa thông tin Hồ sơ ---
+  Widget _buildProfileCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24), // Tăng padding tổng thể
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            // [ĐÃ SỬA] Dùng cú pháp mới để hết lỗi vàng (Deprecated)
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -68,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // 1. Avatar lớn (TD)
+          // 1. Avatar lớn
           const CircleAvatar(
             radius: 40,
             backgroundColor: AppColors.textDark,
@@ -108,7 +137,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          // 4. Số liệu thống kê (ĐÃ BỎ CÁC DIVIDER)
+          // 4. Số liệu thống kê
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -119,13 +148,13 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          // 5. Nút Đăng xuất
+          // 5. Nút Đăng xuất (Đã gắn hàm xử lý)
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () => _handleLogout(context), // Gọi hàm đăng xuất
             icon: const Icon(LucideIcons.logOut, size: 18),
             label: const Text('Đăng xuất'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: _redForLogout, // Màu đỏ giả định
+              foregroundColor: _redForLogout,
               side: const BorderSide(color: _redForLogout, width: 2),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -139,7 +168,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget: Mục thống kê con (Stat Item) ---
+  // --- Widget: Mục thống kê con ---
   Widget _buildStatItem(String count, String label) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -165,7 +194,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget: Phần Bạn bè (Giữ nguyên cấu trúc Card) ---
+  // --- Widget: Phần Bạn bè ---
   Widget _buildFriendsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +225,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget: Mục Bạn bè con (Card) ---
+  // --- Widget: Item Bạn bè ---
   Widget _buildFriendItem({
     required String initials,
     required String name,
@@ -210,7 +239,8 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            // [ĐÃ SỬA] Dùng cú pháp mới
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
