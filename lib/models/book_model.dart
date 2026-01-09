@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart'; // Cần thiết để xử lý kiểu Timestamp
 import 'package:flutter/material.dart';
 
 class BookModel {
@@ -14,15 +15,13 @@ class BookModel {
   final int reviewsCount;
   final DateTime createdAt;
 
-  // --- CÁC TRƯỜNG MỞ RỘNG (ĐẦY ĐỦ) ---
   final String? userId;
   final bool isPublic;
-  final String readingStatus;     // Trạng thái đọc
-  final String physicalLocation;  // Vị trí sách giấy
-  final String lentTo;            // Cho ai mượn
-  final String? assetPath;        // Đường dẫn PDF offline
-  final List<String> keyTakeaways; // <--- ĐÃ THÊM LẠI TRƯỜNG NÀY (Để sửa lỗi)
-  // -----------------------------------
+  final String readingStatus;
+  final String physicalLocation;
+  final String lentTo;
+  final String? assetPath;
+  final List<String> keyTakeaways;
 
   BookModel({
     this.id,
@@ -37,15 +36,13 @@ class BookModel {
     this.rating = 0.0,
     this.reviewsCount = 0,
     required this.createdAt,
-
-    // Constructor đầy đủ
     this.userId,
     this.isPublic = false,
     this.readingStatus = 'reading',
     this.physicalLocation = '',
     this.lentTo = '',
     this.assetPath,
-    this.keyTakeaways = const [], // Mặc định là danh sách rỗng
+    this.keyTakeaways = const [],
   });
 
   Color? get coverColor => colorValue != null ? Color(colorValue!) : null;
@@ -62,20 +59,31 @@ class BookModel {
       'currentPage': currentPage,
       'rating': rating,
       'reviewsCount': reviewsCount,
-      'createdAt': createdAt.millisecondsSinceEpoch,
+      // Khi lưu lên, nên dùng Timestamp của Firebase thay vì int để đồng bộ
+      'createdAt': Timestamp.fromDate(createdAt),
 
-      // Lưu tất cả lên Firebase
       'userId': userId,
       'isPublic': isPublic,
       'readingStatus': readingStatus,
       'physicalLocation': physicalLocation,
       'lentTo': lentTo,
       'assetPath': assetPath,
-      'keyTakeaways': keyTakeaways, // <--- Lưu mảng này
+      'keyTakeaways': keyTakeaways,
     };
   }
 
   factory BookModel.fromMap(Map<String, dynamic> map, String documentId) {
+    // --- KHU VỰC SỬA LỖI ÉP KIỂU THỜI GIAN ---
+    DateTime parseCreatedAt(dynamic value) {
+      if (value is Timestamp) {
+        return value.toDate(); // Chuyển từ Timestamp của Firebase sang DateTime
+      } else if (value is int) {
+        return DateTime.fromMillisecondsSinceEpoch(value); // Trường hợp dữ liệu cũ là int
+      }
+      return DateTime.now(); // Mặc định nếu null hoặc sai kiểu
+    }
+    // ------------------------------------------
+
     return BookModel(
       id: documentId,
       title: map['title'] ?? 'Không tên',
@@ -90,19 +98,16 @@ class BookModel {
           ? (map['rating'] as int).toDouble()
           : (map['rating'] ?? 0.0).toDouble(),
       reviewsCount: map['reviewsCount']?.toInt() ?? 0,
-      createdAt: map['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
-          : DateTime.now(),
 
-      // Đọc về
+      // Sử dụng hàm parse vừa tạo để lấy ngày tháng an toàn
+      createdAt: parseCreatedAt(map['createdAt']),
+
       userId: map['userId'],
       isPublic: map['isPublic'] ?? false,
       readingStatus: map['readingStatus'] ?? 'reading',
       physicalLocation: map['physicalLocation'] ?? '',
       lentTo: map['lentTo'] ?? '',
       assetPath: map['assetPath'],
-
-      // Đọc mảng Key Takeaways an toàn
       keyTakeaways: List<String>.from(map['keyTakeaways'] ?? []),
     );
   }
