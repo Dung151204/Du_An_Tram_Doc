@@ -106,26 +106,37 @@ class DatabaseService {
     });
   }
 
-  // SỬA LỖI: Clone giữ liên kết originalBookId
+  // SỬA LỖI: Clone giữ liên kết originalBookId và GIỮ ĐƯỜNG LINK PDF (assetPath)
   Future<void> cloneBookToLibrary(BookModel publicBook) async {
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Lấy dữ liệu mới nhất từ sách gốc trên server để đảm bảo có link PDF
+      DocumentSnapshot originalDoc = await _bookRef.doc(publicBook.id).get();
+      Map<String, dynamic> sourceData;
+      if (originalDoc.exists) {
+        sourceData = originalDoc.data() as Map<String, dynamic>;
+      } else {
+        sourceData = publicBook.toMap();
+      }
+
       await _bookRef.add({
-        'title': publicBook.title,
-        'author': publicBook.author,
-        'imageUrl': publicBook.imageUrl,
-        'description': publicBook.description,
-        'totalPages': publicBook.totalPages,
-        'content': publicBook.content,
-        'colorValue': publicBook.colorValue ?? publicBook.coverColor?.value,
+        'title': sourceData['title'],
+        'author': sourceData['author'],
+        'imageUrl': sourceData['imageUrl'],
+        'description': sourceData['description'],
+        'totalPages': sourceData['totalPages'],
+        'content': sourceData['content'],
+        'colorValue': sourceData['colorValue'] ?? publicBook.coverColor?.value,
         'userId': uid,
         'isPublic': false,
         'readingStatus': 'wishlist',
         'currentPage': 0,
-        'rating': publicBook.rating,
-        'reviewsCount': publicBook.reviewsCount,
+        'rating': sourceData['rating'] ?? publicBook.rating,
+        'reviewsCount': sourceData['reviewsCount'] ?? publicBook.reviewsCount,
         'createdAt': FieldValue.serverTimestamp(),
         'originalBookId': publicBook.id, // Lưu ID gốc
+        'assetPath': sourceData['assetPath'], // QUAN TRỌNG: Giữ link PDF GitHub
         'source': 'cloned',
         'keyTakeaways': [],
       });
@@ -184,12 +195,10 @@ class DatabaseService {
 
   // --- SỬA LỖI HIỂN THỊ BÌNH LUẬN CHUNG ---
   Stream<List<ReviewModel>> getReviews(String bookId) {
-    // Logic: Trước khi lấy review, phải kiểm tra xem bookId này có trỏ về gốc không
     return _bookRef.doc(bookId).snapshots().asyncMap((bookSnap) async {
       String finalId = bookId;
       if (bookSnap.exists) {
         final data = bookSnap.data() as Map<String, dynamic>;
-        // Nếu là sách clone, lấy ID bản gốc để hiển thị bình luận cộng đồng
         if (data['originalBookId'] != null && data['originalBookId'].toString().isNotEmpty) {
           finalId = data['originalBookId'];
         }

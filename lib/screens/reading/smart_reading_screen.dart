@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:http/http.dart' as http; // THÊM THƯ VIỆN NÀY ĐỂ TẢI FILE TỪ INTERNET
 import '../../models/book_model.dart';
 import '../../services/database_service.dart';
 import '../../services/ai_service.dart';
@@ -28,30 +29,54 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
     _preparePdf();
   }
 
-  // Copy file từ Assets ra thư mục tạm trên điện thoại để đọc
+  // Tải PDF từ URL GitHub hoặc Local Assets
   Future<void> _preparePdf() async {
-    if (widget.book.assetPath == null) {
-      // Nếu không có PDF thì vẫn phải tắt loading để hiện trình đọc Text
-      setState(() => _isLoading = false);
+    if (widget.book.assetPath == null || widget.book.assetPath!.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      final ByteData data = await rootBundle.load(widget.book.assetPath!);
-      final Directory tempDir = await getTemporaryDirectory();
-      final File tempFile = File('${tempDir.path}/${widget.book.title}.pdf');
+      String path = widget.book.assetPath!;
 
-      await tempFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      // KIỂM TRA NẾU LÀ LINK URL (GitHub)
+      if (path.startsWith('http')) {
+        // Fix link GitHub thường sang link Raw để tải được file
+        if (path.contains('github.com') && !path.contains('raw.githubusercontent.com')) {
+          path = path.replaceFirst('github.com', 'raw.githubusercontent.com').replaceFirst('/blob/', '/');
+        }
 
-      if (mounted) {
-        setState(() {
-          _localFilePath = tempFile.path;
-          _isLoading = false;
-        });
+        final response = await http.get(Uri.parse(path));
+        if (response.statusCode == 200) {
+          final Directory tempDir = await getTemporaryDirectory();
+          final File tempFile = File('${tempDir.path}/temp_book_${widget.book.id}.pdf');
+          await tempFile.writeAsBytes(response.bodyBytes, flush: true);
+          if (mounted) {
+            setState(() {
+              _localFilePath = tempFile.path;
+              _isLoading = false;
+            });
+          }
+        } else {
+          throw Exception("Không thể tải file từ server: ${response.statusCode}");
+        }
+      }
+      // KIỂM TRA NẾU LÀ LOCAL ASSET
+      else {
+        final ByteData data = await rootBundle.load(path);
+        final Directory tempDir = await getTemporaryDirectory();
+        final File tempFile = File('${tempDir.path}/${widget.book.title}.pdf');
+        await tempFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+        if (mounted) {
+          setState(() {
+            _localFilePath = tempFile.path;
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       print("Lỗi đọc PDF: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -59,16 +84,12 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
   void _startAIReview() async {
     setState(() => _isGeneratingAI = true);
 
-    // Mẹo Demo: Vì PDF là ảnh, ta gửi nội dung text tóm tắt có sẵn cho AI
     String contextText = widget.book.content.isNotEmpty
         ? widget.book.content
         : "Nội dung cuốn sách ${widget.book.title} của tác giả ${widget.book.author}.";
 
     try {
-      // Gọi AI Service
       final quiz = await AIService().generateFlashcards(widget.book);
-
-      // Lưu vào Firebase
       await DatabaseService().saveAICreatedFlashcards(widget.book.id!, quiz);
 
       if (mounted) {
@@ -85,7 +106,6 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
     setState(() => _isGeneratingAI = false);
   }
 
-  // --- HÀM THÊM: DIALOG NHẬP NỘI DUNG (GIỮ NGUYÊN LOGIC MERGE) ---
   void _showAddContentDialog() {
     final TextEditingController _contentController = TextEditingController();
 
@@ -106,7 +126,6 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
           ElevatedButton(
             onPressed: () async {
               if (_contentController.text.trim().isNotEmpty) {
-                // Gọi hàm appendBookContent trong DatabaseService (hàm này đã thêm ở file trước)
                 await DatabaseService().appendBookContent(widget.book.id!, _contentController.text.trim());
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -138,7 +157,7 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : (widget.book.assetPath != null && _localFilePath != null)
+          : (_localFilePath != null)
           ? PDFView(
         filePath: _localFilePath,
         enableSwipe: true,
@@ -150,11 +169,10 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
         onError: (error) => print(error.toString()),
         onPageError: (page, error) => print('$page: ${error.toString()}'),
       )
-          : _buildTextView(), // Trình xem văn bản có nút thêm nội dung
+          : _buildTextView(),
     );
   }
 
-  // --- WIDGET BỔ SUNG ĐỂ HIỂN THỊ NỘI DUNG TEXT VÀ NÚT THÊM ---
   Widget _buildTextView() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -169,7 +187,6 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
           const Text("--- Hết ---", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 20),
 
-          // NÚT THÊM NỘI DUNG MỚI
           ElevatedButton.icon(
             onPressed: _showAddContentDialog,
             icon: const Icon(Icons.add_comment),

@@ -60,11 +60,14 @@ class _PhysicalBookScreenState extends State<PhysicalBookScreen> with SingleTick
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
-          // Lọc sách giấy (nếu bạn muốn phân biệt sách giấy vs ebook)
-          // Ở đây tôi lấy tất cả để demo, hoặc bạn có thể thêm điều kiện !b.isEbook
-          final allBooks = snapshot.data ?? [];
+          // --- LOGIC SỬA LỖI TẠI ĐÂY ---
+          // Lọc bỏ sách clone từ Google Books (sách clone luôn có originalBookId)
+          // Chỉ giữ lại sách thêm thủ công (originalBookId là null hoặc rỗng)
+          final allBooks = (snapshot.data ?? []).where((b) {
+            return b.originalBookId == null || b.originalBookId!.isEmpty;
+          }).toList();
 
-          // Tách danh sách
+          // Tách danh sách từ dữ liệu đã lọc
           final lentBooks = allBooks.where((b) => b.lentTo.isNotEmpty).toList();
           final shelfBooksMap = _groupBooksByLocation(allBooks);
 
@@ -148,7 +151,8 @@ class _PhysicalBookScreenState extends State<PhysicalBookScreen> with SingleTick
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: book.imageUrl.isNotEmpty
-                  ? Image.network(book.imageUrl, width: 60, height: 90, fit: BoxFit.cover)
+                  ? Image.network(book.imageUrl, width: 60, height: 90, fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(width: 60, height: 90, color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)))
                   : Container(width: 60, height: 90, color: Colors.grey[200], child: const Icon(Icons.book, color: Colors.grey)),
             ),
             const SizedBox(width: 16),
