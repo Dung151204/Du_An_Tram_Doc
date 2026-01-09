@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'manual_add_screen.dart'; // Import màn hình nhập tay gốc
+import 'search_add_screen.dart'; // [MỚI] Import màn hình tìm kiếm
+import 'qr_scan_screen.dart';    // [MỚI] Import màn hình quét mã
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -44,8 +46,10 @@ class AddBookSheet extends StatelessWidget {
                 iconColor: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Tính năng Quét mã đang phát triển")),
+                  // [LOGIC] Chuyển sang màn hình quét mã
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const QRScanScreen()),
                   );
                 },
               ),
@@ -57,8 +61,10 @@ class AddBookSheet extends StatelessWidget {
                 iconColor: Colors.blue,
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Tính năng Tìm kiếm đang phát triển")),
+                  // [LOGIC] Chuyển sang màn hình tìm kiếm
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SearchAddScreen()),
                   );
                 },
               ),
@@ -67,12 +73,10 @@ class AddBookSheet extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // --- NÚT NHẬP THỦ CÔNG (Đã trả về chức năng gốc) ---
+          // --- NÚT NHẬP THỦ CÔNG ---
           GestureDetector(
             onTap: () {
               Navigator.pop(context); // Đóng bảng chọn trước
-
-              // Mở màn hình nhập liệu thủ công (ManualAddScreen)
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ManualAddScreen()),
@@ -87,7 +91,8 @@ class AddBookSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      // [FIX] Sửa withOpacity thành withValues
+                      color: Colors.grey.withValues(alpha: 0.1),
                       spreadRadius: 1,
                       blurRadius: 5,
                       offset: const Offset(0, 3),
@@ -100,7 +105,7 @@ class AddBookSheet extends StatelessWidget {
                   Icon(Icons.edit_note, size: 24, color: Colors.black87),
                   SizedBox(width: 10),
                   Text(
-                      "Nhập thủ công", // Tên chuẩn, không còn chữ Test XAMPP nữa
+                      "Nhập thủ công",
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)
                   ),
                 ],

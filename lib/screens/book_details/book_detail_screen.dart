@@ -6,9 +6,11 @@ import '../../models/review_model.dart';
 import '../../services/database_service.dart';
 import '../reading/reading_screen.dart';
 import 'rating_screen.dart';
-import '../../screens/reading/smart_reading_screen.dart';
 
-// [THAY ĐỔI 1] Chuyển thành StatefulWidget để dùng initState
+// --- SỬA LỖI QUAN TRỌNG TẠI ĐÂY ---
+// Thêm 'hide DatabaseService' để nó không bị nhầm với file service thật
+import '../../screens/reading/smart_reading_screen.dart' hide DatabaseService;
+
 class BookDetailScreen extends StatefulWidget {
   final BookModel book;
 
@@ -25,8 +27,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   void initState() {
     super.initState();
     initialBook = widget.book;
-
-    // [QUAN TRỌNG] Gọi hàm tính điểm chuyên cần (Streak) ngay khi vào xem sách
+    // Cập nhật streak khi vào xem sách
     DatabaseService().updateReadingStreak();
   }
 
@@ -95,7 +96,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                           decoration: BoxDecoration(
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                // Sửa lỗi withOpacity -> withValues
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 15,
                                 offset: const Offset(0, 8),
                               )
@@ -142,7 +144,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.2),
+                            // Sửa lỗi withOpacity -> withValues
+                              color: Colors.black.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -191,17 +194,14 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                                 elevation: 0,
                               ),
                               onPressed: () async {
-                                // [QUAN TRỌNG] Gọi cập nhật Streak lần nữa khi bấm Đọc
                                 await DatabaseService().updateReadingStreak();
 
-                                // 1. Cập nhật trạng thái đọc
                                 if (currentBook.readingStatus == 'wishlist') {
                                   await DatabaseService().updateBook(currentBook.id!, {
                                     'readingStatus': 'reading'
                                   });
                                 }
 
-                                // 2. Điều hướng
                                 if (context.mounted) {
                                   if (currentBook.assetPath != null &&
                                       currentBook.assetPath!.isNotEmpty) {

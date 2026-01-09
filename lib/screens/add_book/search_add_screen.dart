@@ -70,7 +70,7 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
                 controller: _searchController,
                 onChanged: (value) => setState(() => _keyword = value.toLowerCase().trim()),
                 decoration: const InputDecoration(
-                  hintText: "Tìm trong Tủ chung...", // [SỬA] Đổi text gợi ý
+                  hintText: "Tìm trong Tủ chung...",
                   hintStyle: TextStyle(color: Colors.grey),
                   prefixIcon: Icon(Icons.search, color: Colors.orange),
                   border: InputBorder.none,
@@ -85,15 +85,15 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Text(
-                "Tủ sách chung", // [SỬA] Đổi tiêu đề theo yêu cầu
+                "Tủ sách chung",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
             ),
 
-          // 3. DANH SÁCH KẾT QUẢ (StreamBuilder để cập nhật realtime)
+          // 3. DANH SÁCH KẾT QUẢ
           Expanded(
             child: StreamBuilder<List<BookModel>>(
-              stream: DatabaseService().getPublicBooks(), // Lấy sách từ cộng đồng
+              stream: DatabaseService().getPublicBooks(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: AppColors.primary));
@@ -103,9 +103,8 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
                 // Logic lọc và sắp xếp
                 List<BookModel> displayBooks = [];
                 if (_keyword.isEmpty) {
-                  // [QUAN TRỌNG] Sắp xếp theo rating giảm dần (User đánh giá -> Cập nhật vị trí ngay)
                   allBooks.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-                  displayBooks = allBooks.take(20).toList(); // Lấy 20 cuốn top đầu
+                  displayBooks = allBooks.take(20).toList();
                 } else {
                   displayBooks = allBooks.where((book) =>
                   book.title.toLowerCase().contains(_keyword) ||
@@ -165,16 +164,13 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
     );
   }
 
-  // [SỬA] Widget Item Sách - Thêm phần hiển thị đánh giá sao
   Widget _buildBookItem(BookModel book) {
     String firstLetter = book.title.isNotEmpty ? book.title[0].toUpperCase() : "?";
-    Color avatarColor = book.coverColor?.withOpacity(0.2) ?? Colors.orange.shade100;
+    // [FIX] Sửa withOpacity thành withValues
+    Color avatarColor = book.coverColor?.withValues(alpha: 0.2) ?? Colors.orange.shade100;
     Color letterColor = book.coverColor ?? Colors.orange;
 
-    // Format số sao, ví dụ: 4.5
     String ratingText = (book.rating ?? 0.0).toStringAsFixed(1);
-    // Giả sử có trường totalReviews, nếu chưa có thì ẩn hoặc để mặc định
-    // String reviewCount = "(${book.totalReviews ?? 0})";
 
     return Container(
       decoration: BoxDecoration(
@@ -182,7 +178,8 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            // [FIX] Sửa withOpacity thành withValues
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -192,9 +189,8 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // 1. Ảnh/Icon Sách
             Container(
-              width: 50, height: 60, // Chỉnh cao hơn chút cho cân đối 3 dòng
+              width: 50, height: 60,
               decoration: BoxDecoration(
                   color: avatarColor,
                   borderRadius: BorderRadius.circular(12)
@@ -208,33 +204,25 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
 
             const SizedBox(width: 16),
 
-            // 2. Thông tin (3 dòng)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Dòng 1: Tên sách
                   Text(
                       book.title,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis
                   ),
-
                   const SizedBox(height: 4),
-
-                  // Dòng 2: Tác giả
                   Text(
                       book.author,
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis
                   ),
-
                   const SizedBox(height: 6),
-
-                  // Dòng 3 [MỚI]: Đánh giá sao
                   Row(
                     children: [
                       const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
@@ -243,16 +231,12 @@ class _SearchAddScreenState extends State<SearchAddScreen> {
                         ratingText,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                       ),
-                      const SizedBox(width: 4),
-                      // Hiển thị số lượng user đánh giá (nếu Model có)
-                      // Text(reviewCount, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
                     ],
                   )
                 ],
               ),
             ),
 
-            // 3. Nút Add (+)
             GestureDetector(
               onTap: () => _onAddToLibrary(book),
               child: Container(

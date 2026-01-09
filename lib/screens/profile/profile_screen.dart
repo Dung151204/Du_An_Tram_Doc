@@ -341,7 +341,7 @@ class ProfileScreen extends StatelessWidget {
               minimumSize: Size.zero,
             ),
             child: const Text(
-              'Đang theo dõi',
+              'Hủy theo dõi',
               style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
