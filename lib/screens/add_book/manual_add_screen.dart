@@ -16,15 +16,13 @@ class ManualAddScreen extends StatefulWidget {
 class _ManualAddScreenState extends State<ManualAddScreen> {
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
-  final _pagesController = TextEditingController();
+  // Đã xóa _pagesController
   final _descController = TextEditingController();
   final _contentController = TextEditingController();
 
   File? _selectedImage;
   late int _randomColor;
   double _initialRating = 4.5;
-
-  // [MỚI] Biến để chọn công khai hay riêng tư
   bool _isPublic = false;
 
   @override
@@ -50,23 +48,21 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     String bookId = DateTime.now().millisecondsSinceEpoch.toString();
     String imagePath = _selectedImage != null ? _selectedImage!.path : "";
 
-    // Tạo BookModel với cờ isPublic
     final tempBook = BookModel(
       id: bookId,
       title: _titleController.text.trim(),
       author: _authorController.text.trim(),
       description: _descController.text.trim(),
       content: _contentController.text,
-      totalPages: int.tryParse(_pagesController.text) ?? 0,
+      totalPages: 0, // Mặc định là 0 để DatabaseService tự tính toán
       imageUrl: imagePath,
       colorValue: _randomColor,
       createdAt: DateTime.now(),
       rating: _initialRating,
       reviewsCount: 1,
-      // [QUAN TRỌNG] Gán giá trị công khai/riêng tư tại đây
-      // Lưu ý: Nếu BookModel của bạn chưa có field này,
-      // hãy chắc chắn DatabaseService.addBook xử lý nó thông qua Map
       isPublic: _isPublic,
+      readingStatus: 'wishlist', // Mặc định là muốn đọc
+      keyTakeaways: [],
     );
 
     Navigator.push(
@@ -113,11 +109,9 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
             const SizedBox(height: 16),
             _buildInput("Tác giả", _authorController),
             const SizedBox(height: 16),
-            Row(children: [
-              Expanded(child: _buildInput("Số trang", _pagesController, isNumber: true)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildInput("Thể loại", _descController)),
-            ]),
+
+            // UI MỚI: Chỉ còn ô Thể loại, ô Số trang đã bị xóa
+            _buildInput("Thể loại", _descController),
 
             const SizedBox(height: 16),
 
@@ -146,8 +140,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
 
             const SizedBox(height: 16),
 
-            // --- [MỚI] NÚT GẠT CHIA SẺ CỘNG ĐỒNG ---
-            // Thiết kế theo style của _buildInput
+            // --- NÚT GẠT CHIA SẺ CỘNG ĐỒNG ---
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(color: const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)),
