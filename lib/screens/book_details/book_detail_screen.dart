@@ -8,11 +8,27 @@ import '../reading/reading_screen.dart';
 import 'rating_screen.dart';
 import '../../screens/reading/smart_reading_screen.dart';
 
-class BookDetailScreen extends StatelessWidget {
-  final BookModel initialBook;
-
-  const BookDetailScreen({super.key, required this.book}) : initialBook = book;
+// [THAY ĐỔI 1] Chuyển thành StatefulWidget để dùng initState
+class BookDetailScreen extends StatefulWidget {
   final BookModel book;
+
+  const BookDetailScreen({super.key, required this.book});
+
+  @override
+  State<BookDetailScreen> createState() => _BookDetailScreenState();
+}
+
+class _BookDetailScreenState extends State<BookDetailScreen> {
+  late BookModel initialBook;
+
+  @override
+  void initState() {
+    super.initState();
+    initialBook = widget.book;
+
+    // [QUAN TRỌNG] Gọi hàm tính điểm chuyên cần (Streak) ngay khi vào xem sách
+    DatabaseService().updateReadingStreak();
+  }
 
   void _confirmDelete(BuildContext context, String bookId) {
     showDialog(
@@ -175,7 +191,10 @@ class BookDetailScreen extends StatelessWidget {
                                 elevation: 0,
                               ),
                               onPressed: () async {
-                                // 1. SỬA: Đảm bảo dùng 'readingStatus'
+                                // [QUAN TRỌNG] Gọi cập nhật Streak lần nữa khi bấm Đọc
+                                await DatabaseService().updateReadingStreak();
+
+                                // 1. Cập nhật trạng thái đọc
                                 if (currentBook.readingStatus == 'wishlist') {
                                   await DatabaseService().updateBook(currentBook.id!, {
                                     'readingStatus': 'reading'

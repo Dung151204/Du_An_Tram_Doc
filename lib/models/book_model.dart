@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart'; // Cần thiết để xử lý kiểu Timestamp
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class BookModel {
@@ -20,6 +20,7 @@ class BookModel {
   final String readingStatus;
   final String physicalLocation;
   final String lentTo;
+  final DateTime? returnDate; // [QUAN TRỌNG] Thêm trường này để lưu ngày trả
   final String? assetPath;
   final List<String> keyTakeaways;
 
@@ -41,6 +42,7 @@ class BookModel {
     this.readingStatus = 'reading',
     this.physicalLocation = '',
     this.lentTo = '',
+    this.returnDate, // Thêm vào constructor
     this.assetPath,
     this.keyTakeaways = const [],
   });
@@ -59,30 +61,26 @@ class BookModel {
       'currentPage': currentPage,
       'rating': rating,
       'reviewsCount': reviewsCount,
-      // Khi lưu lên, nên dùng Timestamp của Firebase thay vì int để đồng bộ
       'createdAt': Timestamp.fromDate(createdAt),
-
       'userId': userId,
       'isPublic': isPublic,
       'readingStatus': readingStatus,
       'physicalLocation': physicalLocation,
       'lentTo': lentTo,
+      // Lưu ngày trả dưới dạng Timestamp nếu có
+      'returnDate': returnDate != null ? Timestamp.fromDate(returnDate!) : null,
       'assetPath': assetPath,
       'keyTakeaways': keyTakeaways,
     };
   }
 
   factory BookModel.fromMap(Map<String, dynamic> map, String documentId) {
-    // --- KHU VỰC SỬA LỖI ÉP KIỂU THỜI GIAN ---
-    DateTime parseCreatedAt(dynamic value) {
-      if (value is Timestamp) {
-        return value.toDate(); // Chuyển từ Timestamp của Firebase sang DateTime
-      } else if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value); // Trường hợp dữ liệu cũ là int
-      }
-      return DateTime.now(); // Mặc định nếu null hoặc sai kiểu
+    // Hàm xử lý ngày tháng an toàn
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      return DateTime.now();
     }
-    // ------------------------------------------
 
     return BookModel(
       id: documentId,
@@ -94,19 +92,20 @@ class BookModel {
       colorValue: map['colorValue'],
       totalPages: map['totalPages']?.toInt() ?? 0,
       currentPage: map['currentPage']?.toInt() ?? 0,
-      rating: (map['rating'] is int)
-          ? (map['rating'] as int).toDouble()
-          : (map['rating'] ?? 0.0).toDouble(),
+      rating: (map['rating'] is int) ? (map['rating'] as int).toDouble() : (map['rating'] ?? 0.0).toDouble(),
       reviewsCount: map['reviewsCount']?.toInt() ?? 0,
 
-      // Sử dụng hàm parse vừa tạo để lấy ngày tháng an toàn
-      createdAt: parseCreatedAt(map['createdAt']),
+      createdAt: parseDate(map['createdAt']),
 
       userId: map['userId'],
       isPublic: map['isPublic'] ?? false,
       readingStatus: map['readingStatus'] ?? 'reading',
       physicalLocation: map['physicalLocation'] ?? '',
       lentTo: map['lentTo'] ?? '',
+
+      // Xử lý ngày trả khi đọc về
+      returnDate: map['returnDate'] != null ? parseDate(map['returnDate']) : null,
+
       assetPath: map['assetPath'],
       keyTakeaways: List<String>.from(map['keyTakeaways'] ?? []),
     );

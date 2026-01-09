@@ -183,4 +183,97 @@ class DatabaseService {
   Future<void> updateBook(String bookId, Map<String, dynamic> data) async {
     try { await _bookRef.doc(bookId).update(data); } catch (e) { print("❌ Lỗi update: $e"); rethrow; }
   }
+
+  // --- TÍNH NĂNG MẠNG XÃ HỘI (Follow) ---
+
+  // 1. Tìm kiếm người dùng theo tên (Gần đúng)
+  Stream<QuerySnapshot> searchUsers(String query) {
+    return _firestore
+        .collection('users')
+        .where('fullName', isGreaterThanOrEqualTo: query)
+        .where('fullName', isLessThan: query + 'z')
+        .snapshots();
+  }
+
+  // 2. Kiểm tra xem mình đã theo dõi người này chưa
+  Stream<bool> isFollowing(String targetUserId) {
+    String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return Stream.value(false);
+
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('following') // Sub-collection lưu danh sách đang theo dõi
+        .doc(targetUserId)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  // 3. Bấm nút Theo dõi / Hủy theo dõi
+  Future<void> toggleFollow(String targetUserId) async {
+    String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    DocumentReference followingDoc = _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('following')
+        .doc(targetUserId);
+
+    final docSnapshot = await followingDoc.get();
+
+    if (docSnapshot.exists) {
+      // Nếu đã theo dõi -> Xóa (Hủy theo dõi)
+      await followingDoc.delete();
+    } else {
+      // Nếu chưa theo dõi -> Thêm vào
+      await followingDoc.set({
+        'followedAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+  // --- TÍNH NĂNG CHUỖI ĐỌC SÁCH (STREAK) ---
+  Future<void> updateReadingStreak() async {
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    DocumentReference userDoc = _firestore.collection('users').doc(uid);
+    DocumentSnapshot snapshot = await userDoc.get();
+
+    if (!snapshot.exists) return;
+
+    Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+
+    // Lấy dữ liệu cũ
+    int currentStreak = data['currentStreak'] ?? 0;
+    String? lastReadingDateStr = data['lastReadingDate']; // Lưu dạng yyyy-MM-dd
+
+    // Ngày hôm nay
+    String todayStr = DateTime.now().toIso8601String().split('T')[0];
+
+    // Logic tính chuỗi
+    if (lastReadingDateStr == todayStr) {
+      // Đã tính điểm hôm nay rồi -> Không làm gì cả
+      return;
+    }
+
+    DateTime today = DateTime.parse(todayStr);
+    DateTime? lastDate = lastReadingDateStr != null ? DateTime.parse(lastReadingDateStr) : null;
+
+    if (lastDate != null && today.difference(lastDate).inDays == 1) {
+      // Nếu ngày đọc cuối là hôm qua -> Tăng chuỗi
+      currentStreak++;
+    } else {
+      // Nếu bỏ lỡ một ngày hoặc mới đọc lần đầu -> Reset về 1
+      currentStreak = 1;
+    }
+
+    // Cập nhật lên Firebase
+    await userDoc.update({
+      'currentStreak': currentStreak,
+      'lastReadingDate': todayStr,
+    });
+
+    print("🔥 Đã cập nhật chuỗi: $currentStreak ngày");
+  }
 }

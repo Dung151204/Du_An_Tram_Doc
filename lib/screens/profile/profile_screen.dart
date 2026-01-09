@@ -1,10 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart'; // Thư viện Firestore
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Thư viện Firebase
+import 'package:firebase_auth/firebase_auth.dart';
 
-// [ĐÃ SỬA] Đường dẫn đúng để tìm file Login (Thoát ra khỏi thư mục profile -> vào thư mục auth)
+// [QUAN TRỌNG] Import màn hình tìm kiếm vừa tạo (Sửa lại đường dẫn nếu cần)
+import '../community/search_user_screen.dart';
 import '../auth/login_screen.dart';
-
+import '../../services/database_service.dart'; // Import service để dùng toggleFollow
 import '../../../core/constants/app_colors.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -15,12 +17,8 @@ class ProfileScreen extends StatelessWidget {
   // --- HÀM XỬ LÝ ĐĂNG XUẤT ---
   void _handleLogout(BuildContext context) async {
     try {
-      // 1. Đăng xuất khỏi Firebase
       await FirebaseAuth.instance.signOut();
-
-      // 2. Kiểm tra context còn tồn tại không trước khi chuyển trang
       if (context.mounted) {
-        // 3. Chuyển về màn hình Login và XÓA HẾT lịch sử các màn hình cũ
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
               (route) => false,
@@ -37,9 +35,15 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Lấy ID người dùng hiện tại
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return const Center(child: Text("Vui lòng đăng nhập lại"));
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(),
+      // Truyền context vào AppBar để điều hướng
+      appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -47,9 +51,11 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              _buildProfileCard(context), // Truyền context vào để dùng cho nút Logout
+              // Hiển thị Profile thật từ Firebase
+              _buildRealProfileInfo(context, user.uid),
               const SizedBox(height: 32),
-              _buildFriendsSection(),
+              // Hiển thị danh sách bạn bè thật
+              _buildRealFriendsList(user.uid),
               const SizedBox(height: 120),
             ],
           ),
@@ -58,179 +64,231 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // --- Widget: AppBar ---
-  PreferredSizeWidget _buildAppBar() {
+  // --- Widget: AppBar (Đã thêm nút Tìm kiếm) ---
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(LucideIcons.arrowLeft, color: AppColors.textDark),
-        onPressed: () {},
+        onPressed: () {
+          // Xử lý nút back nếu cần
+          Navigator.pop(context);
+        },
       ),
       centerTitle: true,
       title: const Text(
         'Hồ sơ',
         style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-          color: AppColors.textDark,
+          fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textDark,
         ),
       ),
+      actions: [
+        // [MỚI] Nút Tìm kiếm bạn bè
+        IconButton(
+          icon: const Icon(LucideIcons.userPlus, color: Colors.blueAccent),
+          tooltip: "Tìm bạn bè",
+          onPressed: () {
+            // Chuyển sang màn hình tìm kiếm
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SearchUserScreen()),
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+      ],
     );
   }
 
-  // --- Widget: Card chứa thông tin Hồ sơ ---
-  Widget _buildProfileCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            // [ĐÃ SỬA] Dùng cú pháp mới để hết lỗi vàng (Deprecated)
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // 1. Avatar lớn
-          const CircleAvatar(
-            radius: 40,
-            backgroundColor: AppColors.textDark,
-            child: Text(
-              'MH',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
+  // --- Widget: Hiển thị thông tin Profile thật ---
+  Widget _buildRealProfileInfo(BuildContext context, String uid) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+        var userData = snapshot.data!.data() as Map<String, dynamic>?;
+
+        // Dữ liệu mặc định nếu chưa có
+        String name = userData?['fullName'] ?? 'Người dùng';
+        String email = userData?['email'] ?? '';
+        String initials = name.isNotEmpty ? name[0].toUpperCase() : "U";
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05), // Sửa lại withOpacity cho tương thích bản cũ
+                blurRadius: 8, offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 16),
-
-          // 2. Tên người dùng
-          const Text(
-            'Minh Hải',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 4),
-
-          // 3. Status
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: AppColors.textDark,
+                child: Text(
+                  initials,
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.white),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Mọt sách chính hiệu',
-                style: TextStyle(fontSize: 14, color: AppColors.textGrey),
+                name,
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
-              const SizedBox(width: 4),
-              const Text('📚', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(email, style: TextStyle(fontSize: 14, color: AppColors.textGrey)),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              // Thống kê (Tạm thời để cứng hoặc query đếm sau)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatItem('12', 'SÁCH'),
+                  _buildStatItem('5', 'CHUỖI'),
+                  _buildStatItem('48', 'GHI CHÚ'),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              OutlinedButton.icon(
+                onPressed: () => _handleLogout(context),
+                icon: const Icon(LucideIcons.logOut, size: 18),
+                label: const Text('Đăng xuất'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _redForLogout,
+                  side: const BorderSide(color: _redForLogout, width: 2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 32),
-
-          // 4. Số liệu thống kê
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem('12', 'SÁCH'),
-              _buildStatItem('5', 'CHUỖI'),
-              _buildStatItem('48', 'GHI CHÚ'),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          // 5. Nút Đăng xuất (Đã gắn hàm xử lý)
-          OutlinedButton.icon(
-            onPressed: () => _handleLogout(context), // Gọi hàm đăng xuất
-            icon: const Icon(LucideIcons.logOut, size: 18),
-            label: const Text('Đăng xuất'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _redForLogout,
-              side: const BorderSide(color: _redForLogout, width: 2),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              textStyle: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // --- Widget: Mục thống kê con ---
+  // --- Widget: Danh sách Bạn bè (Following) Thật ---
+  Widget _buildRealFriendsList(String currentUserId) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'ĐANG THEO DÕI',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textGrey),
+            ),
+            // Gợi ý bấm nút tìm kiếm
+            GestureDetector(
+              onTap: (){}, // Có thể mở SearchUserScreen tại đây luôn
+              child: const Text("Thêm bạn +", style: TextStyle(color: Colors.blue, fontSize: 12)),
+            )
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Stream lấy danh sách ID những người mình đang theo dõi
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .collection('following')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(12)
+                ),
+                child: const Column(
+                  children: [
+                    Icon(LucideIcons.userX, color: Colors.grey, size: 40),
+                    SizedBox(height: 8),
+                    Text("Bạn chưa theo dõi ai cả.", style: TextStyle(color: Colors.grey)),
+                    Text("Bấm icon góc trên để tìm bạn bè!", style: TextStyle(color: Colors.blue, fontSize: 12)),
+                  ],
+                ),
+              );
+            }
+
+            final followingDocs = snapshot.data!.docs;
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: followingDocs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                // Lấy ID của người mình theo dõi
+                String targetUserId = followingDocs[index].id;
+
+                // Fetch thông tin chi tiết của người đó (Tên, Email...)
+                return FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance.collection('users').doc(targetUserId).get(),
+                  builder: (context, userSnapshot) {
+                    if (!userSnapshot.hasData) return const SizedBox(); // Đang tải từng item
+
+                    var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+                    String friendName = userData?['fullName'] ?? 'Không tên';
+                    String initials = friendName.isNotEmpty ? friendName[0].toUpperCase() : "?";
+
+                    return _buildFriendItem(
+                      initials: initials,
+                      name: friendName,
+                      // Có thể cập nhật status đọc sách sau này
+                      status: userData?['email'] ?? 'Thành viên Trạm Đọc',
+                      avatarColor: (index % 2 == 0) ? AppColors.amber : AppColors.primary,
+                      targetUserId: targetUserId, // Truyền ID để nút Follow hoạt động
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatItem(String count, String label) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          count,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
-          ),
-        ),
+        Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark)),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textGrey,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  // --- Widget: Phần Bạn bè ---
-  Widget _buildFriendsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'BẠN BÈ',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGrey,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildFriendItem(
-          initials: 'DN',
-          name: 'Dũng Ngô',
-          status: 'Đang đọc Đắc Nhân Tâm',
-          avatarColor: AppColors.amber,
-        ),
-        const SizedBox(height: 16),
-        _buildFriendItem(
-          initials: 'AT',
-          name: 'Anh Thi',
-          status: 'Đang đọc Đi Tìm Lẽ Sống',
-          avatarColor: AppColors.primary,
-        ),
-      ],
-    );
-  }
-
-  // --- Widget: Item Bạn bè ---
+  // --- Widget: Item Bạn bè (Đã gắn chức năng Hủy theo dõi) ---
   Widget _buildFriendItem({
     required String initials,
     required String name,
     required String status,
     required Color avatarColor,
+    required String targetUserId, // [QUAN TRỌNG] ID để xử lý
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -239,10 +297,8 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            // [ĐÃ SỬA] Dùng cú pháp mới
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8, offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -253,11 +309,7 @@ class ProfileScreen extends StatelessWidget {
             backgroundColor: avatarColor,
             child: Text(
               initials,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
           const SizedBox(width: 12),
@@ -267,41 +319,35 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppColors.textDark,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  status,
-                  style: TextStyle(fontSize: 12, color: AppColors.textGrey),
-                ),
+                Text(status, style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
               ],
             ),
           ),
+
+          // Nút Đang theo dõi (Bấm vào để hủy)
           OutlinedButton(
-            onPressed: () {},
+            onPressed: () {
+              // Gọi hàm từ DatabaseService để Hủy theo dõi
+              DatabaseService().toggleFollow(targetUserId);
+            },
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.textGrey, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              side: const BorderSide(color: Colors.green, width: 1),
+              backgroundColor: Colors.green.shade50,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               minimumSize: Size.zero,
             ),
-            child: Text(
-              'Theo dõi',
-              style: TextStyle(
-                color: AppColors.textGrey,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+            child: const Text(
+              'Đang theo dõi',
+              style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
     );
   }
+
 }
