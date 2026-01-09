@@ -18,7 +18,7 @@ class DatabaseService {
       if (data['isPublic'] == null) {
         data['isPublic'] = false;
       }
-      data['createdAt'] = FieldValue.serverTimestamp(); // Sửa lỗi Timestamp cho đồng bộ
+      data['createdAt'] = FieldValue.serverTimestamp();
 
       String content = data['content'] ?? "";
       int currentTotalPages = data['totalPages'] ?? 0;
@@ -44,7 +44,6 @@ class DatabaseService {
         .map((snapshot) {
       return snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        // Xử lý Timestamp thành int để khớp Model cũ
         if (data['createdAt'] is Timestamp) {
           data['createdAt'] = (data['createdAt'] as Timestamp).millisecondsSinceEpoch;
         }
@@ -53,16 +52,12 @@ class DatabaseService {
     });
   }
 
-  // Hàm bổ trợ: Lấy danh sách ID các cuốn sách của User hiện tại
   Future<List<String>> getUserBookIds() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return [];
-
     final snapshot = await _bookRef.where('userId', isEqualTo: uid).get();
     return snapshot.docs.map((doc) => doc.id).toList();
   }
-
-  // --- Các hàm khác (getPublicBooks, cloneBook, deleteBook, addReview...) giữ nguyên ---
 
   Stream<List<BookModel>> getBooks() {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
@@ -184,96 +179,95 @@ class DatabaseService {
     try { await _bookRef.doc(bookId).update(data); } catch (e) { print("❌ Lỗi update: $e"); rethrow; }
   }
 
-  // --- TÍNH NĂNG MẠNG XÃ HỘI (Follow) ---
-
-  // 1. Tìm kiếm người dùng theo tên (Gần đúng)
   Stream<QuerySnapshot> searchUsers(String query) {
-    return _firestore
-        .collection('users')
-        .where('fullName', isGreaterThanOrEqualTo: query)
-        .where('fullName', isLessThan: query + 'z')
-        .snapshots();
+    String cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return const Stream.empty();
+    if (cleanQuery.contains('@')) {
+      return _firestore.collection('users').where('email', isEqualTo: cleanQuery).snapshots();
+    } else {
+      return _firestore.collection('users').where('fullName', isGreaterThanOrEqualTo: cleanQuery).where('fullName', isLessThan: cleanQuery + 'z').snapshots();
+    }
   }
 
-  // 2. Kiểm tra xem mình đã theo dõi người này chưa
   Stream<bool> isFollowing(String targetUserId) {
     String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
     if (currentUserId == null) return Stream.value(false);
-
-    return _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following') // Sub-collection lưu danh sách đang theo dõi
-        .doc(targetUserId)
-        .snapshots()
-        .map((doc) => doc.exists);
+    return _firestore.collection('users').doc(currentUserId).collection('following').doc(targetUserId).snapshots().map((doc) => doc.exists);
   }
 
-  // 3. Bấm nút Theo dõi / Hủy theo dõi
   Future<void> toggleFollow(String targetUserId) async {
     String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
     if (currentUserId == null) return;
-
-    DocumentReference followingDoc = _firestore
-        .collection('users')
-        .doc(currentUserId)
-        .collection('following')
-        .doc(targetUserId);
-
+    DocumentReference followingDoc = _firestore.collection('users').doc(currentUserId).collection('following').doc(targetUserId);
     final docSnapshot = await followingDoc.get();
-
     if (docSnapshot.exists) {
-      // Nếu đã theo dõi -> Xóa (Hủy theo dõi)
       await followingDoc.delete();
     } else {
-      // Nếu chưa theo dõi -> Thêm vào
-      await followingDoc.set({
-        'followedAt': FieldValue.serverTimestamp(),
-      });
+      await followingDoc.set({'followedAt': FieldValue.serverTimestamp()});
     }
   }
-  // --- TÍNH NĂNG CHUỖI ĐỌC SÁCH (STREAK) ---
+
   Future<void> updateReadingStreak() async {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
     DocumentReference userDoc = _firestore.collection('users').doc(uid);
     DocumentSnapshot snapshot = await userDoc.get();
-
     if (!snapshot.exists) return;
-
     Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-
-    // Lấy dữ liệu cũ
     int currentStreak = data['currentStreak'] ?? 0;
-    String? lastReadingDateStr = data['lastReadingDate']; // Lưu dạng yyyy-MM-dd
-
-    // Ngày hôm nay
+    String? lastReadingDateStr = data['lastReadingDate'];
     String todayStr = DateTime.now().toIso8601String().split('T')[0];
-
-    // Logic tính chuỗi
-    if (lastReadingDateStr == todayStr) {
-      // Đã tính điểm hôm nay rồi -> Không làm gì cả
-      return;
-    }
-
+    if (lastReadingDateStr == todayStr) return;
     DateTime today = DateTime.parse(todayStr);
     DateTime? lastDate = lastReadingDateStr != null ? DateTime.parse(lastReadingDateStr) : null;
-
     if (lastDate != null && today.difference(lastDate).inDays == 1) {
-      // Nếu ngày đọc cuối là hôm qua -> Tăng chuỗi
       currentStreak++;
     } else {
-      // Nếu bỏ lỡ một ngày hoặc mới đọc lần đầu -> Reset về 1
       currentStreak = 1;
     }
+    await userDoc.update({'currentStreak': currentStreak, 'lastReadingDate': todayStr});
+  }
 
-    // Cập nhật lên Firebase
-    await userDoc.update({
-      'currentStreak': currentStreak,
-      'lastReadingDate': todayStr,
+  // --- TÍNH NĂNG CỘNG ĐỒNG (FEED) ---
+
+  // 1. Lấy danh sách ID những người mình đang theo dõi
+  Future<List<String>> getFollowingUserIds() async {
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return [];
+
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('following')
+        .get();
+
+    return snapshot.docs.map((doc) => doc.id).toList();
+  }
+
+  // 2. Lấy sách của bạn bè (Những người trong danh sách followingIds)
+  Stream<List<BookModel>> getFriendsBooks(List<String> followingIds) {
+    if (followingIds.isEmpty) {
+      return Stream.value([]); // Nếu không theo dõi ai -> Trả về rỗng
+    }
+
+    // Firestore giới hạn 'whereIn' tối đa 10 phần tử.
+    // Lấy 10 người đầu tiên để demo (trong thực tế cần giải pháp chia batch)
+    List<String> limitedIds = followingIds.take(10).toList();
+
+    return _bookRef
+        .where('userId', whereIn: limitedIds) // Lọc sách của những người này
+        .orderBy('createdAt', descending: true) // Sách mới nhất lên đầu
+        .limit(20) // Lấy 20 cuốn gần nhất
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        // Xử lý Timestamp an toàn
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).millisecondsSinceEpoch;
+        }
+        return BookModel.fromMap(data, doc.id);
+      }).toList();
     });
-
-    print("🔥 Đã cập nhật chuỗi: $currentStreak ngày");
   }
 }
