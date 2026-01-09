@@ -1,12 +1,13 @@
 // File: lib/screens/auth/register_screen.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // [MỚI] Thêm thư viện này
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../widgets/custom_button.dart'; // Dùng lại nút bấm chuẩn của dự án
-import '../../widgets/custom_textfield.dart'; // Dùng lại ô nhập chuẩn
-import '../../main_wrapper.dart'; // Màn hình chính
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_textfield.dart';
+import '../../main_wrapper.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,19 +17,15 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 1. Tạo các bộ điều khiển để lấy dữ liệu nhập vào
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passController = TextEditingController();
-  final _confirmPassController = TextEditingController(); // Thêm ô nhập lại mật khẩu cho chắc
+  final _confirmPassController = TextEditingController();
 
   bool _isLoading = false;
 
-  // 2. Hàm xử lý Đăng Ký (Có Log để bắt lỗi)
   Future<void> _handleRegister() async {
-    print("🟢 Nút Đăng ký đã được bấm!"); // Log 1
-
-    // Kiểm tra nhập liệu
+    // 1. Kiểm tra nhập liệu
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _passController.text.trim().isEmpty) {
@@ -44,22 +41,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      print("🟡 Đang gửi yêu cầu tạo tài khoản lên Firebase..."); // Log 2
-
-      // GỌI FIREBASE TẠO TÀI KHOẢN
+      // 2. TẠO TÀI KHOẢN AUTHENTICATION
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passController.text.trim(),
       );
 
-      print("🟢 Tạo tài khoản thành công! UID: ${userCredential.user?.uid}"); // Log 3
-
-      // Cập nhật tên hiển thị
+      // Cập nhật tên hiển thị ngay lập tức
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
 
-      // Chuyển sang màn hình chính (Xóa hết lịch sử quay lại)
+      String uid = userCredential.user!.uid;
+
+      // 3. [QUAN TRỌNG] LƯU DỮ LIỆU NGƯỜI DÙNG VÀO FIRESTORE
+      // Đây là bước giúp bạn có đầy đủ thông tin User trong Database
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'uid': uid,
+        'fullName': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(), // Lưu thời gian tạo
+        'role': 'user',
+        'lastReviewDate': null, // Trường này để phục vụ tính năng ôn tập sau này
+      });
+
+      // 4. Chuyển sang màn hình chính
       if (mounted) {
-        print("🟢 Đang chuyển hướng sang MainWrapper...");
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainWrapper()),
@@ -67,14 +72,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     } catch (e) {
-      // BẮT LỖI VÀ IN RA MÀN HÌNH
-      print("🔴 LỖI FIREBASE: $e"); // Log Lỗi
-
       String message = "Đăng ký thất bại";
       if (e is FirebaseAuthException) {
-        if (e.code == 'email-already-in-use') message = "Email này đã có người dùng!";
+        if (e.code == 'email-already-in-use') message = "Email này đã được sử dụng!";
         if (e.code == 'invalid-email') message = "Email không hợp lệ!";
-        if (e.code == 'weak-password') message = "Mật khẩu quá yếu (cần 6 ký tự trở lên)!";
+        if (e.code == 'weak-password') message = "Mật khẩu quá yếu (cần 6 ký tự)!";
       }
       _showError(message);
     } finally {
@@ -104,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header (Giữ nguyên cho đẹp)
+            // Header
             Container(
               height: 280,
               width: double.infinity,
@@ -129,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            // Form Đăng ký
+            // Form
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
@@ -138,45 +140,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const Text("Tạo tài khoản", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                   const SizedBox(height: 24),
 
-                  // Dùng CustomTextField (Widget chung) để code gọn hơn
-                  CustomTextField(
-                    label: "Tên hiển thị",
-                    icon: LucideIcons.user,
-                    controller: _nameController, // Gắn biến hứng dữ liệu
-                  ),
+                  CustomTextField(label: "Tên hiển thị", icon: LucideIcons.user, controller: _nameController),
                   const SizedBox(height: 16),
-
-                  CustomTextField(
-                    label: "Email",
-                    icon: LucideIcons.mail,
-                    controller: _emailController,
-                  ),
+                  CustomTextField(label: "Email", icon: LucideIcons.mail, controller: _emailController),
                   const SizedBox(height: 16),
-
-                  CustomTextField(
-                    label: "Mật khẩu",
-                    icon: LucideIcons.lock,
-                    isPassword: true,
-                    controller: _passController,
-                  ),
+                  CustomTextField(label: "Mật khẩu", icon: LucideIcons.lock, isPassword: true, controller: _passController),
                   const SizedBox(height: 16),
-
-                  CustomTextField(
-                    label: "Nhập lại mật khẩu",
-                    icon: LucideIcons.lock,
-                    isPassword: true,
-                    controller: _confirmPassController,
-                  ),
+                  CustomTextField(label: "Nhập lại mật khẩu", icon: LucideIcons.lock, isPassword: true, controller: _confirmPassController),
 
                   const SizedBox(height: 32),
 
-                  // Nút bấm có hiệu ứng loading
                   _isLoading
                       ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                       : CustomButton(
                     text: "Đăng ký ngay",
                     icon: LucideIcons.arrowRight,
-                    onPressed: _handleRegister, // Gọi hàm xử lý Firebase
+                    onPressed: _handleRegister,
                   ),
 
                   const SizedBox(height: 32),
