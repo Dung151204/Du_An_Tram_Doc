@@ -10,7 +10,7 @@ class DatabaseService {
   final CollectionReference _reviewRef =
   FirebaseFirestore.instance.collection('reviews');
 
-  // 1. Thêm sách (GIỮ NGUYÊN)
+  // 1. Thêm sách
   Future<void> addBook(BookModel book) async {
     try {
       Map<String, dynamic> data = book.toMap();
@@ -18,6 +18,17 @@ class DatabaseService {
       if (data['isPublic'] == null) {
         data['isPublic'] = false;
       }
+      data['createdAt'] = FieldValue.serverTimestamp(); // Sửa lỗi Timestamp cho đồng bộ
+
+      String content = data['content'] ?? "";
+      int currentTotalPages = data['totalPages'] ?? 0;
+
+      if (content.isNotEmpty && currentTotalPages <= 0) {
+        int calculatedPages = (content.length / 1500).ceil();
+        if (calculatedPages < 1) calculatedPages = 1;
+        data['totalPages'] = calculatedPages;
+      }
+
       await _bookRef.doc(book.id).set(data);
     } catch (e) {
       print("❌ Lỗi lưu sách: $e");
@@ -25,33 +36,52 @@ class DatabaseService {
     }
   }
 
-  // 2. Lấy sách (GIỮ NGUYÊN)
-  Stream<List<BookModel>> getBooks() {
-    String? uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Stream.empty();
-
-    return _bookRef.where('userId', isEqualTo: uid).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BookModel.fromMap(
-            doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
-    });
-  }
-
-  // 3. Lấy sách KHO CHUNG (GIỮ NGUYÊN)
-  Stream<List<BookModel>> getPublicBooks() {
+  // 2. Lấy sách cá nhân
+  Stream<List<BookModel>> getBooksByUserId(String userId) {
     return _bookRef
-        .where('isPublic', isEqualTo: true)
+        .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
-        return BookModel.fromMap(
-            doc.data() as Map<String, dynamic>, doc.id);
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        // Xử lý Timestamp thành int để khớp Model cũ
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).millisecondsSinceEpoch;
+        }
+        return BookModel.fromMap(data, doc.id);
       }).toList();
     });
   }
 
-  // 4. Clone sách (GIỮ NGUYÊN)
+  // Hàm bổ trợ: Lấy danh sách ID các cuốn sách của User hiện tại
+  Future<List<String>> getUserBookIds() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return [];
+
+    final snapshot = await _bookRef.where('userId', isEqualTo: uid).get();
+    return snapshot.docs.map((doc) => doc.id).toList();
+  }
+
+  // --- Các hàm khác (getPublicBooks, cloneBook, deleteBook, addReview...) giữ nguyên ---
+
+  Stream<List<BookModel>> getBooks() {
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return getBooksByUserId(uid);
+  }
+
+  Stream<List<BookModel>> getPublicBooks() {
+    return _bookRef.where('isPublic', isEqualTo: true).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).millisecondsSinceEpoch;
+        }
+        return BookModel.fromMap(data, doc.id);
+      }).toList();
+    });
+  }
+
   Future<void> cloneBookToLibrary(BookModel publicBook) async {
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -62,160 +92,188 @@ class DatabaseService {
         'description': publicBook.description,
         'totalPages': publicBook.totalPages,
         'content': publicBook.content,
-        'colorValue':
-        publicBook.colorValue ?? publicBook.coverColor?.value,
+        'colorValue': publicBook.colorValue ?? publicBook.coverColor?.value,
         'userId': uid,
         'isPublic': false,
-        'status': 'reading',
+        'readingStatus': 'wishlist',
         'currentPage': 0,
         'rating': 0.0,
         'reviewsCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
         'originalBookId': publicBook.id,
         'source': 'cloned',
+        'keyTakeaways': [],
       });
-    } catch (e) {
-      print("❌ Lỗi clone sách: $e");
-      rethrow;
-    }
+    } catch (e) { print("❌ Lỗi clone: $e"); rethrow; }
   }
 
-  // 5. Xóa sách (GIỮ NGUYÊN)
   Future<void> deleteBook(String bookId) async {
     try {
       await _bookRef.doc(bookId).delete();
-      final reviewsSnapshot =
-      await _reviewRef.where('bookId', isEqualTo: bookId).get();
-      for (var doc in reviewsSnapshot.docs) {
-        await doc.reference.delete();
-      }
-    } catch (e) {
-      print("❌ Lỗi xóa sách: $e");
-      rethrow;
-    }
+      final reviewsSnapshot = await _reviewRef.where('bookId', isEqualTo: bookId).get();
+      for (var doc in reviewsSnapshot.docs) { await doc.reference.delete(); }
+    } catch (e) { print("❌ Lỗi xóa: $e"); rethrow; }
   }
 
   Stream<BookModel> getBookStream(String bookId) {
     return _bookRef.doc(bookId).snapshots().map((doc) {
       if (doc.exists) {
-        return BookModel.fromMap(
-            doc.data() as Map<String, dynamic>, doc.id);
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).millisecondsSinceEpoch;
+        }
+        return BookModel.fromMap(data, doc.id);
       } else {
-        return BookModel(
-          id: 'error',
-          title: 'Không tìm thấy',
-          author: '',
-          description: '',
-          content: '',
-          imageUrl: '',
-          totalPages: 0,
-          createdAt: DateTime.now(),
-        );
+        return BookModel(id: 'error', title: 'Không tìm thấy', author: '', imageUrl: '', totalPages: 0, createdAt: DateTime.now());
       }
     });
   }
 
-  Future<void> addReview(
-      ReviewModel review, BookModel currentBook) async {
+  Future<void> addReview(ReviewModel review, BookModel currentBook) async {
     try {
       await _reviewRef.doc(review.id).set(review.toMap());
       DocumentSnapshot doc = await _bookRef.doc(currentBook.id).get();
       if (!doc.exists) return;
-
-      Map<String, dynamic> data =
-      doc.data() as Map<String, dynamic>;
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
       double serverRating = (data['rating'] ?? 0.0).toDouble();
       int serverCount = (data['reviewsCount'] ?? 0).toInt();
-
-      double newRating =
-          ((serverRating * serverCount) + review.rating) /
-              (serverCount + 1);
+      double newRating = ((serverRating * serverCount) + review.rating) / (serverCount + 1);
       newRating = double.parse(newRating.toStringAsFixed(1));
-
-      await _bookRef.doc(currentBook.id).update({
-        'rating': newRating,
-        'reviewsCount': serverCount + 1,
-      });
-    } catch (e) {
-      print("❌ Lỗi lưu review: $e");
-      rethrow;
-    }
+      await _bookRef.doc(currentBook.id).update({'rating': newRating, 'reviewsCount': serverCount + 1});
+    } catch (e) { print("❌ Lỗi review: $e"); rethrow; }
   }
 
-  // --- HÀM GET REVIEWS (ĐÃ TÁCH BIỆT) ---
   Stream<List<ReviewModel>> getReviews(String bookId) {
-    return _reviewRef
-        .where('bookId', isEqualTo: bookId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) =>
-          ReviewModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-          .toList();
+    return _reviewRef.where('bookId', isEqualTo: bookId).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => ReviewModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
     });
   }
 
-  // --- HÀM LƯU FLASHCARD AI (ĐÃ ĐƯA RA NGOÀI) ---
-  Future<void> saveAICreatedFlashcards(
-      String bookId, List<Map<String, dynamic>> flashcards) async {
+  Future<int> saveAICreatedFlashcards(String bookId, List<Map<String, dynamic>> flashcards) async {
     try {
-      final CollectionReference flashRef =
-      _bookRef.doc(bookId).collection('flashcards');
-
+      final CollectionReference flashRef = _bookRef.doc(bookId).collection('flashcards');
+      final existingSnapshot = await flashRef.get();
+      final Set<String> existingQuestions = existingSnapshot.docs.map((doc) => (doc.data() as Map<String, dynamic>)['question'].toString().toLowerCase().trim()).toSet();
+      int addedCount = 0;
       for (var card in flashcards) {
-        await flashRef.add({
-          'question': card['question'],
-          'answer': card['answer'],
-          'createdAt': FieldValue.serverTimestamp(),
-          'nextReview': DateTime.now().millisecondsSinceEpoch,
-          'level': 'new',
-        });
+        String newQuestion = card['question'].toString().toLowerCase().trim();
+        if (!existingQuestions.contains(newQuestion)) {
+          await flashRef.add({
+            'question': card['question'], 'answer': card['answer'],
+            'createdAt': FieldValue.serverTimestamp(),
+            'nextReview': DateTime.now().millisecondsSinceEpoch, 'level': 'new',
+          });
+          addedCount++;
+        }
       }
-      print("✅ Đã lưu ${flashcards.length} câu hỏi AI vào Firebase");
-    } catch (e) {
-      print("❌ Lỗi lưu Flashcards: $e");
-      rethrow;
-    }
+      return addedCount;
+    } catch (e) { print("❌ Lỗi Flashcards: $e"); rethrow; }
   }
 
-  // --- CẬP NHẬT TRẠNG THÁI ÔN TẬP (THEO CODE BẠN GỬI) ---
-  Future<void> updateFlashcardLevel(
-      String bookId, String cardId, String level) async {
+  Future<void> updateFlashcardLevel(String bookId, String cardId, String level) async {
     try {
       DateTime now = DateTime.now();
-      int nextReview;
-
-      if (level == 'hard') {
-        nextReview =
-            now.add(const Duration(minutes: 10)).millisecondsSinceEpoch;
-      } else if (level == 'good') {
-        nextReview =
-            now.add(const Duration(days: 1)).millisecondsSinceEpoch;
-      } else {
-        nextReview =
-            now.add(const Duration(days: 4)).millisecondsSinceEpoch;
-      }
-
-      await _bookRef
-          .doc(bookId)
-          .collection('flashcards')
-          .doc(cardId)
-          .update({
-        'level': level,
-        'nextReview': nextReview,
-      });
-    } catch (e) {
-      print("❌ Lỗi: $e");
-    }
+      int nextReview = now.add(const Duration(days: 4)).millisecondsSinceEpoch;
+      if (level == 'hard') nextReview = now.add(const Duration(minutes: 10)).millisecondsSinceEpoch;
+      if (level == 'good') nextReview = now.add(const Duration(days: 1)).millisecondsSinceEpoch;
+      await _bookRef.doc(bookId).collection('flashcards').doc(cardId).update({'level': level, 'nextReview': nextReview});
+    } catch (e) { print("❌ Lỗi: $e"); }
   }
-  // Hàm cập nhật thông tin sách (Dùng cho trả sách, sửa vị trí...)
+
   Future<void> updateBook(String bookId, Map<String, dynamic> data) async {
-    try {
-      await _firestore.collection('books').doc(bookId).update(data);
-    } catch (e) {
-      print("Lỗi updateBook: $e");
-      rethrow;
-    }
+    try { await _bookRef.doc(bookId).update(data); } catch (e) { print("❌ Lỗi update: $e"); rethrow; }
   }
 
+  // --- TÍNH NĂNG MẠNG XÃ HỘI (Follow) ---
+
+  // 1. Tìm kiếm người dùng theo tên (Gần đúng)
+  Stream<QuerySnapshot> searchUsers(String query) {
+    return _firestore
+        .collection('users')
+        .where('fullName', isGreaterThanOrEqualTo: query)
+        .where('fullName', isLessThan: query + 'z')
+        .snapshots();
+  }
+
+  // 2. Kiểm tra xem mình đã theo dõi người này chưa
+  Stream<bool> isFollowing(String targetUserId) {
+    String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return Stream.value(false);
+
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('following') // Sub-collection lưu danh sách đang theo dõi
+        .doc(targetUserId)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  // 3. Bấm nút Theo dõi / Hủy theo dõi
+  Future<void> toggleFollow(String targetUserId) async {
+    String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    DocumentReference followingDoc = _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('following')
+        .doc(targetUserId);
+
+    final docSnapshot = await followingDoc.get();
+
+    if (docSnapshot.exists) {
+      // Nếu đã theo dõi -> Xóa (Hủy theo dõi)
+      await followingDoc.delete();
+    } else {
+      // Nếu chưa theo dõi -> Thêm vào
+      await followingDoc.set({
+        'followedAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+  // --- TÍNH NĂNG CHUỖI ĐỌC SÁCH (STREAK) ---
+  Future<void> updateReadingStreak() async {
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    DocumentReference userDoc = _firestore.collection('users').doc(uid);
+    DocumentSnapshot snapshot = await userDoc.get();
+
+    if (!snapshot.exists) return;
+
+    Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+
+    // Lấy dữ liệu cũ
+    int currentStreak = data['currentStreak'] ?? 0;
+    String? lastReadingDateStr = data['lastReadingDate']; // Lưu dạng yyyy-MM-dd
+
+    // Ngày hôm nay
+    String todayStr = DateTime.now().toIso8601String().split('T')[0];
+
+    // Logic tính chuỗi
+    if (lastReadingDateStr == todayStr) {
+      // Đã tính điểm hôm nay rồi -> Không làm gì cả
+      return;
+    }
+
+    DateTime today = DateTime.parse(todayStr);
+    DateTime? lastDate = lastReadingDateStr != null ? DateTime.parse(lastReadingDateStr) : null;
+
+    if (lastDate != null && today.difference(lastDate).inDays == 1) {
+      // Nếu ngày đọc cuối là hôm qua -> Tăng chuỗi
+      currentStreak++;
+    } else {
+      // Nếu bỏ lỡ một ngày hoặc mới đọc lần đầu -> Reset về 1
+      currentStreak = 1;
+    }
+
+    // Cập nhật lên Firebase
+    await userDoc.update({
+      'currentStreak': currentStreak,
+      'lastReadingDate': todayStr,
+    });
+
+    print("🔥 Đã cập nhật chuỗi: $currentStreak ngày");
+  }
 }

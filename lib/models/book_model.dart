@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class BookModel {
@@ -14,15 +15,14 @@ class BookModel {
   final int reviewsCount;
   final DateTime createdAt;
 
-  // --- CÁC TRƯỜNG MỞ RỘNG (ĐẦY ĐỦ) ---
   final String? userId;
   final bool isPublic;
-  final String readingStatus;     // Trạng thái đọc
-  final String physicalLocation;  // Vị trí sách giấy
-  final String lentTo;            // Cho ai mượn
-  final String? assetPath;        // Đường dẫn PDF offline
-  final List<String> keyTakeaways; // <--- ĐÃ THÊM LẠI TRƯỜNG NÀY (Để sửa lỗi)
-  // -----------------------------------
+  final String readingStatus;
+  final String physicalLocation;
+  final String lentTo;
+  final DateTime? returnDate; // [QUAN TRỌNG] Thêm trường này để lưu ngày trả
+  final String? assetPath;
+  final List<String> keyTakeaways;
 
   BookModel({
     this.id,
@@ -37,15 +37,14 @@ class BookModel {
     this.rating = 0.0,
     this.reviewsCount = 0,
     required this.createdAt,
-
-    // Constructor đầy đủ
     this.userId,
     this.isPublic = false,
     this.readingStatus = 'reading',
     this.physicalLocation = '',
     this.lentTo = '',
+    this.returnDate, // Thêm vào constructor
     this.assetPath,
-    this.keyTakeaways = const [], // Mặc định là danh sách rỗng
+    this.keyTakeaways = const [],
   });
 
   Color? get coverColor => colorValue != null ? Color(colorValue!) : null;
@@ -62,20 +61,27 @@ class BookModel {
       'currentPage': currentPage,
       'rating': rating,
       'reviewsCount': reviewsCount,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-
-      // Lưu tất cả lên Firebase
+      'createdAt': Timestamp.fromDate(createdAt),
       'userId': userId,
       'isPublic': isPublic,
       'readingStatus': readingStatus,
       'physicalLocation': physicalLocation,
       'lentTo': lentTo,
+      // Lưu ngày trả dưới dạng Timestamp nếu có
+      'returnDate': returnDate != null ? Timestamp.fromDate(returnDate!) : null,
       'assetPath': assetPath,
-      'keyTakeaways': keyTakeaways, // <--- Lưu mảng này
+      'keyTakeaways': keyTakeaways,
     };
   }
 
   factory BookModel.fromMap(Map<String, dynamic> map, String documentId) {
+    // Hàm xử lý ngày tháng an toàn
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      return DateTime.now();
+    }
+
     return BookModel(
       id: documentId,
       title: map['title'] ?? 'Không tên',
@@ -86,23 +92,21 @@ class BookModel {
       colorValue: map['colorValue'],
       totalPages: map['totalPages']?.toInt() ?? 0,
       currentPage: map['currentPage']?.toInt() ?? 0,
-      rating: (map['rating'] is int)
-          ? (map['rating'] as int).toDouble()
-          : (map['rating'] ?? 0.0).toDouble(),
+      rating: (map['rating'] is int) ? (map['rating'] as int).toDouble() : (map['rating'] ?? 0.0).toDouble(),
       reviewsCount: map['reviewsCount']?.toInt() ?? 0,
-      createdAt: map['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
-          : DateTime.now(),
 
-      // Đọc về
+      createdAt: parseDate(map['createdAt']),
+
       userId: map['userId'],
       isPublic: map['isPublic'] ?? false,
       readingStatus: map['readingStatus'] ?? 'reading',
       physicalLocation: map['physicalLocation'] ?? '',
       lentTo: map['lentTo'] ?? '',
-      assetPath: map['assetPath'],
 
-      // Đọc mảng Key Takeaways an toàn
+      // Xử lý ngày trả khi đọc về
+      returnDate: map['returnDate'] != null ? parseDate(map['returnDate']) : null,
+
+      assetPath: map['assetPath'],
       keyTakeaways: List<String>.from(map['keyTakeaways'] ?? []),
     );
   }

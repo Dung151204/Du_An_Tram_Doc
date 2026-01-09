@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
 import '../../services/database_service.dart';
-import '../../main_wrapper.dart'; // <--- 1. NHỚ IMPORT FILE NÀY
+import '../../main_wrapper.dart'; // <--- 1. GIỮ NGUYÊN IMPORT NÀY
 
 class BookAddPreviewScreen extends StatefulWidget {
   final BookModel book;
@@ -28,8 +28,7 @@ class _BookAddPreviewScreenState extends State<BookAddPreviewScreen> {
       await DatabaseService().addBook(widget.book);
 
       if (mounted) {
-        // --- 2. SỬA LOGIC ĐIỀU HƯỚNG TẠI ĐÂY ---
-        // Chuyển thẳng về MainWrapper để nó tự load lại Tủ sách (Tab 0)
+        // --- 2. GIỮ NGUYÊN LOGIC ĐIỀU HƯỚNG CỦA BẠN ---
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainWrapper()),
@@ -90,8 +89,9 @@ class _BookAddPreviewScreenState extends State<BookAddPreviewScreen> {
                     Text(widget.book.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 8),
                     Text(widget.book.author, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: AppColors.primary, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Text("${widget.book.totalPages} trang", style: const TextStyle(fontSize: 14, color: Colors.grey)),
+
+                    // [ĐÃ XÓA DÒNG SỐ TRANG Ở ĐÂY]
+
                   ],
                 ),
               ),

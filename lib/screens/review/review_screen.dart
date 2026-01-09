@@ -30,7 +30,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Lấy ngày review cuối cùng từ Firestore
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -38,7 +37,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
     final lastReview = userDoc.data()?['lastReviewDate'] as String?;
 
-    // 🔥 Logic: reset vào 5h sáng
     final now = DateTime.now();
     final today5AM = DateTime(now.year, now.month, now.day, 5, 0);
     final effectiveDate = now.isBefore(today5AM)
@@ -52,7 +50,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
       _canReviewToday = canReview;
     });
 
-    // 🔥 LUÔN fetch thẻ mới từ Firebase (cho cả ngày mới và ôn lại)
     await _loadCards();
 
     setState(() {
@@ -60,16 +57,34 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
   }
 
+  // SỬA LỖI: Lọc thẻ theo User mà không làm mất code
   Future<void> _loadCards() async {
-    // 🔥 Luôn fetch mới từ Firebase để có thẻ cập nhật nhất
-    final snapshot = await FirebaseFirestore.instance.collectionGroup('flashcards').get();
-    setState(() {
-      _allCards = List.from(snapshot.docs);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-      // Chỉ set currentSessionCards nếu đang cho phép review
+    // Lấy ID sách của user này từ DatabaseService
+    final bookIds = await DatabaseService().getUserBookIds();
+
+    if (bookIds.isEmpty) {
+      setState(() {
+        _allCards = [];
+        _currentSessionCards = [];
+      });
+      return;
+    }
+
+    final snapshot = await FirebaseFirestore.instance.collectionGroup('flashcards').get();
+
+    setState(() {
+      // CHỈ GIỮ LẠI THẺ THUỘC SÁCH CỦA USER ĐANG ĐĂNG NHẬP
+      _allCards = snapshot.docs.where((doc) {
+        final parentBookId = doc.reference.parent.parent?.id;
+        return bookIds.contains(parentBookId);
+      }).toList();
+
       if (_canReviewToday) {
         _currentSessionCards = List.from(_allCards);
-        _currentSessionCards.shuffle(); // 🔥 Đảo thẻ
+        _currentSessionCards.shuffle();
       }
     });
   }
@@ -84,7 +99,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
       }
     });
 
-    // Reset PageView về trang đầu
     if (_currentSessionCards.isNotEmpty) {
       _pageController.jumpToPage(0);
     }
@@ -93,9 +107,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
   void _restartSession() {
     setState(() {
       _currentSessionCards = List.from(_allCards);
-      _currentSessionCards.shuffle(); // 🔥 Đảo thẻ lại
+      _currentSessionCards.shuffle();
       _isFinished = false;
-      _canReviewToday = true; // Cho phép ôn lại
+      _canReviewToday = true;
     });
     _pageController.jumpToPage(0);
   }
@@ -103,7 +117,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
   Future<void> _finishAndExit() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Lưu ngày hoàn thành review (theo logic 5h sáng)
       final now = DateTime.now();
       final today5AM = DateTime(now.year, now.month, now.day, 5, 0);
       final effectiveDate = now.isBefore(today5AM)
@@ -115,7 +128,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
           .doc(user.uid)
           .set({'lastReviewDate': effectiveDate}, SetOptions(merge: true));
 
-      // Set trạng thái đã xong hôm nay
       setState(() {
         _canReviewToday = false;
         _isFinished = false;
@@ -132,17 +144,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
       );
     }
 
-    // Nếu đã review hôm nay → hiện màn chờ
     if (!_canReviewToday) {
       return _buildWaitScreen();
     }
 
-    // Nếu hoàn thành → hiện màn kết thúc
     if (_isFinished) {
       return _buildFinishedScreen();
     }
 
-    // Màn hình chính
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -303,7 +312,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
-              // Nút "Kết thúc"
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -327,7 +335,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Widget _buildWaitScreen() {
-    // Tính thời gian đến 5h sáng ngày mai
     final now = DateTime.now();
     final tomorrow5AM = now.hour >= 5
         ? DateTime(now.year, now.month, now.day + 1, 5, 0)
@@ -388,7 +395,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              // Nút "Ôn tập lại" - Xào thẻ
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -412,7 +418,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Future<int> _getTotalCardsCount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return 0;
+    final bookIds = await DatabaseService().getUserBookIds();
+    if (bookIds.isEmpty) return 0;
     final snapshot = await FirebaseFirestore.instance.collectionGroup('flashcards').get();
-    return snapshot.docs.length;
+    return snapshot.docs.where((doc) {
+      final parentBookId = doc.reference.parent.parent?.id;
+      return bookIds.contains(parentBookId);
+    }).length;
   }
 }
