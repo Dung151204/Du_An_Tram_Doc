@@ -1,6 +1,7 @@
-import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:http/http.dart' as http;
 import '../../core/constants/app_colors.dart';
 import '../../models/book_model.dart';
 import 'book_add_preview_screen.dart';
@@ -15,11 +16,10 @@ class QRScanScreen extends StatefulWidget {
 class _QRScanScreenState extends State<QRScanScreen> {
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
-    returnImage: false,
   );
 
-  bool _isScanned = false;
-  bool _isFlashOn = false; // Biến tự quản lý trạng thái đèn Flash
+  bool _isProcessing = false;
+  bool _isFlashOn = false; // [SỬA] Dùng biến này để quản lý đèn Flash
 
   @override
   void dispose() {
@@ -27,36 +27,83 @@ class _QRScanScreenState extends State<QRScanScreen> {
     super.dispose();
   }
 
-  // Hàm xử lý khi quét (hoặc khi bấm nút giả lập)
-  void _onDetect(BarcodeCapture capture) {
-    if (_isScanned) return;
+  Future<void> _fetchBookDetails(String isbn) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
 
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("🔍 Đang tìm thông tin sách..."),
+        duration: Duration(seconds: 2),
+      ),
+    );
 
-    final String? code = barcodes.first.rawValue;
-    if (code != null) {
-      setState(() => _isScanned = true);
+    try {
+      final url = Uri.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn');
+      final response = await http.get(url);
 
-      // Giả lập tìm thấy sách
-      final foundBook = BookModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: "Sách tìm thấy",
-        author: "Mã vạch: $code",
-        description: "Đây là cuốn sách được tìm thấy thông qua quét mã vạch ISBN.",
-        content: "",
-        totalPages: 300,
-        imageUrl: "",
-        colorValue: [0xFFC2410C, 0xFF1E6F86, 0xFFEAB308, 0xFF3B82F6][Random().nextInt(4)],
-        createdAt: DateTime.now(),
-        rating: 4.5,
-        reviewsCount: 10,
-      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['totalItems'] != null && data['totalItems'] > 0) {
+          final bookInfo = data['items'][0]['volumeInfo'];
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => BookAddPreviewScreen(book: foundBook)),
-      );
+          String title = bookInfo['title'] ?? "Không rõ tên";
+          String author = "Không rõ tác giả";
+          if (bookInfo['authors'] != null && (bookInfo['authors'] as List).isNotEmpty) {
+            author = bookInfo['authors'][0];
+          }
+          String description = bookInfo['description'] ?? "Chưa có mô tả";
+          int pageCount = bookInfo['pageCount'] ?? 0;
+
+          String imageUrl = "";
+          if (bookInfo['imageLinks'] != null) {
+            imageUrl = bookInfo['imageLinks']['thumbnail'] ??
+                bookInfo['imageLinks']['smallThumbnail'] ?? "";
+            imageUrl = imageUrl.replaceFirst("http://", "https://");
+          }
+
+          final newBook = BookModel(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            title: title,
+            author: author,
+            description: description,
+            content: "",
+            totalPages: pageCount,
+            imageUrl: imageUrl,
+            rating: 5.0,
+            reviewsCount: 0,
+            createdAt: DateTime.now(),
+            readingStatus: 'wishlist',
+            keyTakeaways: [],
+            isPublic: true,
+          );
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookAddPreviewScreen(book: newBook),
+              ),
+            );
+          }
+        } else {
+          throw Exception("Không tìm thấy sách này.");
+        }
+      } else {
+        throw Exception("Lỗi kết nối máy chủ.");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Lỗi: ${e.toString().replaceAll('Exception: ', '')}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _isProcessing = false);
+        });
+      }
     }
   }
 
@@ -68,103 +115,77 @@ class _QRScanScreenState extends State<QRScanScreen> {
         children: [
           MobileScanner(
             controller: _controller,
-            onDetect: _onDetect,
+            onDetect: (capture) {
+              if (_isProcessing) return;
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                if (barcode.rawValue != null && barcode.rawValue!.length >= 10) {
+                  _fetchBookDetails(barcode.rawValue!);
+                  break;
+                }
+              }
+            },
           ),
-
-          // Lớp phủ mờ
-          ColorFiltered(
-            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.srcOut),
-            child: Stack(
+          _buildOverlay(context),
+          Positioned(
+            top: 50, left: 20, right: 20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    backgroundBlendMode: BlendMode.dstOut,
+                CircleAvatar(
+                  backgroundColor: Colors.black45,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ),
-                Center(
-                  child: Container(
-                    width: 280, height: 150,
-                    decoration: BoxDecoration(
+                // [SỬA] Nút Flash thủ công
+                CircleAvatar(
+                  backgroundColor: Colors.black45,
+                  child: IconButton(
+                    icon: Icon(
+                      _isFlashOn ? Icons.flash_on : Icons.flash_off,
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
                     ),
+                    onPressed: () {
+                      _controller.toggleTorch();
+                      setState(() => _isFlashOn = !_isFlashOn);
+                    },
                   ),
                 ),
               ],
             ),
           ),
-
-          // Khung viền đỏ
-          Center(
-            child: Container(
-              width: 280, height: 150,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.primary, width: 2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
-              child: Container(
-                width: 260, height: 1, color: Colors.red.withOpacity(0.5),
-              ),
+          const Positioned(
+            bottom: 80, left: 0, right: 0,
+            child: Column(
+              children: [
+                Text("Quét mã vạch (ISBN) phía sau sách",
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
             ),
-          ),
-
-          // Nút Back & Flash
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                            _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                            color: Colors.white, size: 28
-                        ),
-                        onPressed: () async {
-                          await _controller.toggleTorch();
-                          setState(() {
-                            _isFlashOn = !_isFlashOn;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 50),
-                  const Text(
-                    "Di chuyển camera vào mã vạch",
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // --- NÚT GIẢ LẬP QUÉT (Dành cho máy ảo) ---
-          Positioned(
-            bottom: 30,
-            right: 20,
-            child: FloatingActionButton.extended(
-              backgroundColor: Colors.red,
-              icon: const Icon(Icons.bug_report, color: Colors.white),
-              label: const Text("Giả lập (Máy ảo)", style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                // Giả vờ như camera vừa quét được mã 978...
-                _onDetect(BarcodeCapture(
-                  barcodes: [Barcode(rawValue: '9786047726359')],
-                ));
-              },
-            ),
-          ),
+          )
         ],
       ),
+    );
+  }
+
+  Widget _buildOverlay(BuildContext context) {
+    // ... Giữ nguyên phần UI Overlay
+    double scanW = 300; double scanH = 150;
+    return Stack(
+      children: [
+        ColorFiltered(
+          colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.6), BlendMode.srcOut),
+          child: Stack(
+            children: [
+              Container(decoration: const BoxDecoration(color: Colors.transparent, backgroundBlendMode: BlendMode.dstOut)),
+              Center(child: Container(height: scanH, width: scanW, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)))),
+            ],
+          ),
+        ),
+        Center(child: Container(height: scanH, width: scanW, decoration: BoxDecoration(border: Border.all(color: AppColors.primary, width: 2), borderRadius: BorderRadius.circular(16)), child: Center(child: Container(height: 1, width: scanW - 20, color: Colors.red.withOpacity(0.8))))),
+      ],
     );
   }
 }
