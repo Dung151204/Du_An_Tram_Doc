@@ -30,7 +30,11 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
 
   // Copy file từ Assets ra thư mục tạm trên điện thoại để đọc
   Future<void> _preparePdf() async {
-    if (widget.book.assetPath == null) return;
+    if (widget.book.assetPath == null) {
+      // Nếu không có PDF thì vẫn phải tắt loading để hiện trình đọc Text
+      setState(() => _isLoading = false);
+      return;
+    }
 
     try {
       final ByteData data = await rootBundle.load(widget.book.assetPath!);
@@ -81,6 +85,42 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
     setState(() => _isGeneratingAI = false);
   }
 
+  // --- HÀM THÊM: DIALOG NHẬP NỘI DUNG (GIỮ NGUYÊN LOGIC MERGE) ---
+  void _showAddContentDialog() {
+    final TextEditingController _contentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Tiếp tục viết nội dung"),
+        content: TextField(
+          controller: _contentController,
+          maxLines: 10,
+          decoration: const InputDecoration(
+            hintText: "Dán nội dung mới vào đây...",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy")),
+          ElevatedButton(
+            onPressed: () async {
+              if (_contentController.text.trim().isNotEmpty) {
+                // Gọi hàm appendBookContent trong DatabaseService (hàm này đã thêm ở file trước)
+                await DatabaseService().appendBookContent(widget.book.id!, _contentController.text.trim());
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("✅ Đã cập nhật nội dung mới!")),
+                );
+              }
+            },
+            child: const Text("Cập nhật"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,9 +138,8 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _localFilePath == null
-          ? const Center(child: Text("Lỗi: Không tìm thấy file PDF"))
-          : PDFView(
+          : (widget.book.assetPath != null && _localFilePath != null)
+          ? PDFView(
         filePath: _localFilePath,
         enableSwipe: true,
         swipeHorizontal: true,
@@ -110,6 +149,40 @@ class _SmartReadingScreenState extends State<SmartReadingScreen> {
         onPageChanged: (page, total) => setState(() => _currentPage = page ?? 0),
         onError: (error) => print(error.toString()),
         onPageError: (page, error) => print('$page: ${error.toString()}'),
+      )
+          : _buildTextView(), // Trình xem văn bản có nút thêm nội dung
+    );
+  }
+
+  // --- WIDGET BỔ SUNG ĐỂ HIỂN THỊ NỘI DUNG TEXT VÀ NÚT THÊM ---
+  Widget _buildTextView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Text(
+            widget.book.content.isNotEmpty ? widget.book.content : "Sách chưa có nội dung văn bản.",
+            style: const TextStyle(fontSize: 18, height: 1.6),
+          ),
+          const SizedBox(height: 30),
+          const Divider(),
+          const Text("--- Hết ---", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 20),
+
+          // NÚT THÊM NỘI DUNG MỚI
+          ElevatedButton.icon(
+            onPressed: _showAddContentDialog,
+            icon: const Icon(Icons.add_comment),
+            label: const Text("THÊM NỘI DUNG MỚI"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueGrey.shade800,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 50),
+        ],
       ),
     );
   }
