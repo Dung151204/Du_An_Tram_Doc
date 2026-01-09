@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import 'manual_add_screen.dart';
-import 'qr_scan_screen.dart';
-import 'search_add_screen.dart'; // <--- 1. SỬA IMPORT (Trỏ vào file mới)
+import 'manual_add_screen.dart'; // Import màn hình nhập tay gốc
 
 class AddBookSheet extends StatelessWidget {
   const AddBookSheet({super.key});
@@ -10,90 +7,140 @@ class AddBookSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 420,
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Thanh nắm kéo
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+          // Thanh gạch ngang nhỏ trên cùng (Handle bar)
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(height: 24),
-          const Text("Thêm sách mới", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+
+          const Text(
+            "Thêm sách mới",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 32),
 
+          // Hàng chứa 2 nút tròn: Quét mã & Tìm kiếm
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Nút Quét mã (Đã thay icon chuẩn)
-              _buildBtn(context, Icons.qr_code_scanner, "Quét mã", Colors.amber.shade100.withOpacity(0.5), Colors.orange, () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScanScreen()));
-              }),
-              const SizedBox(width: 16),
-
-              // Nút Tìm kiếm
-              _buildBtn(context, Icons.search, "Tìm kiếm", Colors.blue.shade100.withOpacity(0.5), Colors.blue, () {
-                Navigator.pop(context);
-                // 2. SỬA ĐƯỜNG DẪN (Chuyển sang SearchAddScreen)
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchAddScreen()));
-              }),
+              _buildOption(
+                context,
+                icon: Icons.qr_code_scanner,
+                label: "Quét mã",
+                color: Colors.orange.shade50,
+                iconColor: Colors.orange,
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Tính năng Quét mã đang phát triển")),
+                  );
+                },
+              ),
+              _buildOption(
+                context,
+                icon: Icons.search,
+                label: "Tìm kiếm",
+                color: Colors.blue.shade50,
+                iconColor: Colors.blue,
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Tính năng Tìm kiếm đang phát triển")),
+                  );
+                },
+              ),
             ],
           ),
-          const SizedBox(height: 20),
 
-          // Nút Nhập thủ công
+          const SizedBox(height: 24),
+
+          // --- NÚT NHẬP THỦ CÔNG (Đã trả về chức năng gốc) ---
           GestureDetector(
             onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualAddScreen()));
+              Navigator.pop(context); // Đóng bảng chọn trước
+
+              // Mở màn hình nhập liệu thủ công (ManualAddScreen)
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ManualAddScreen()),
+              );
             },
             child: Container(
+              width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(20)
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  // Đã thay icon chuẩn
-                  Icon(Icons.edit_note, size: 24, color: AppColors.textDark),
+                  Icon(Icons.edit_note, size: 24, color: Colors.black87),
                   SizedBox(width: 10),
-                  Text("Nhập thủ công", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  Text(
+                      "Nhập thủ công", // Tên chuẩn, không còn chữ Test XAMPP nữa
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)
+                  ),
                 ],
               ),
             ),
-          )
+          ),
+          // ---------------------------------------------------
+
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildBtn(BuildContext context, IconData icon, String label, Color bg, Color iconColor, VoidCallback onPress) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onPress,
-        child: Container(
-          height: 130,
-          decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(24)
-          ),
-          child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: Icon(icon, color: iconColor, size: 28)
-                ),
-                const SizedBox(height: 16),
-                Text(label, style: const TextStyle(color: AppColors.textDark, fontSize: 14, fontWeight: FontWeight.bold)),
-              ]
-          ),
+  // Widget vẽ nút tròn (không thay đổi)
+  Widget _buildOption(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 120,
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: iconColor),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+            ),
+          ],
         ),
       ),
     );

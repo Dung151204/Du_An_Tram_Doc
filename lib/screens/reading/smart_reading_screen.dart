@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:http/http.dart' as http; // QUAN TRỌNG: Thư viện tải mạng
 import '../../models/book_model.dart';
-import '../../services/database_service.dart';
-import '../../services/ai_service.dart';
 
 class SmartReadingScreen extends StatefulWidget {
   final BookModel book;
@@ -16,100 +15,168 @@ class SmartReadingScreen extends StatefulWidget {
 }
 
 class _SmartReadingScreenState extends State<SmartReadingScreen> {
-  String? _localFilePath;
+  String? _localPdfPath; // Đường dẫn file sau khi tải xong
+
+  late PageController _textPageController;
+  List<String> _textPages = [];
+
   bool _isLoading = true;
+  bool _isPdfMode = false;
   int _currentPage = 0;
   int _totalPages = 0;
-  bool _isGeneratingAI = false;
+  String _statusMessage = "Đang kiểm tra dữ liệu...";
 
   @override
   void initState() {
     super.initState();
-    _preparePdf();
+    _checkAndPrepareContent();
   }
 
-  // Copy file từ Assets ra thư mục tạm trên điện thoại để đọc
-  Future<void> _preparePdf() async {
-    if (widget.book.assetPath == null) return;
+  Future<void> _checkAndPrepareContent() async {
+    String? path = widget.book.assetPath;
 
-    try {
-      final ByteData data = await rootBundle.load(widget.book.assetPath!);
-      final Directory tempDir = await getTemporaryDirectory();
-      final File tempFile = File('${tempDir.path}/${widget.book.title}.pdf');
+    // --- TRƯỜNG HỢP 1: LINK MẠNG (HTTP/HTTPS) ---
+    if (path != null && (path.startsWith('http') || path.startsWith('https'))) {
+      _isPdfMode = true;
+      setState(() => _statusMessage = "Đang tải sách từ Server...");
 
-      await tempFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      try {
+        // 1. Tải dữ liệu từ URL
+        final response = await http.get(Uri.parse(path));
 
-      if (mounted) {
-        setState(() {
-          _localFilePath = tempFile.path;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print("Lỗi đọc PDF: $e");
-      setState(() => _isLoading = false);
-    }
-  }
+        if (response.statusCode == 200) {
+          // 2. Lưu vào bộ nhớ tạm của điện thoại
+          final Directory tempDir = await getTemporaryDirectory();
+          final File tempFile = File('${tempDir.path}/temp_book_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
-  // Gọi AI tạo câu hỏi ôn tập
-  void _startAIReview() async {
-    setState(() => _isGeneratingAI = true);
+          await tempFile.writeAsBytes(response.bodyBytes);
 
-    // Mẹo Demo: Vì PDF là ảnh, ta gửi nội dung text tóm tắt có sẵn cho AI
-    String contextText = widget.book.content.isNotEmpty
-        ? widget.book.content
-        : "Nội dung cuốn sách ${widget.book.title} của tác giả ${widget.book.author}.";
-
-    try {
-      // Gọi AI Service
-      final quiz = await AIService().generateFlashcards(widget.book);
-
-      // Lưu vào Firebase
-      await DatabaseService().saveAICreatedFlashcards(widget.book.id!, quiz);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ AI đã tạo bộ câu hỏi! Vào mục 'Ôn tập' để xem.")),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi AI: $e")));
+          if (mounted) {
+            setState(() {
+              _localPdfPath = tempFile.path; // Đã có file thật trong máy
+              _isLoading = false;
+            });
+          }
+        } else {
+          // Lỗi do Server (ví dụ 404 Not Found)
+          _handleError("Không tải được sách. Lỗi Server: ${response.statusCode}");
+        }
+      } catch (e) {
+        // Lỗi do mạng hoặc code
+        _handleError("Lỗi kết nối: $e");
       }
     }
 
-    setState(() => _isGeneratingAI = false);
+    // --- TRƯỜNG HỢP 2: FILE CÓ SẴN TRONG APP (ASSETS) ---
+    else if (path != null && path.endsWith('.pdf')) {
+      _isPdfMode = true;
+      setState(() => _statusMessage = "Đang mở sách...");
+      try {
+        final ByteData data = await rootBundle.load(path);
+        final Directory tempDir = await getTemporaryDirectory();
+        final File tempFile = File('${tempDir.path}/${widget.book.title}.pdf');
+        await tempFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+
+        if (mounted) {
+          setState(() {
+            _localPdfPath = tempFile.path;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        _isPdfMode = false;
+        _processTextContent(); // Nếu lỗi PDF thì chuyển sang đọc chữ
+      }
+    }
+
+    // --- TRƯỜNG HỢP 3: SÁCH CHỈ CÓ CHỮ (NHẬP TAY) ---
+    else {
+      _isPdfMode = false;
+      _textPageController = PageController();
+      _processTextContent();
+    }
+  }
+
+  void _handleError(String error) {
+    print(error);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _isPdfMode = false; // Chuyển về chế độ đọc text báo lỗi
+        _statusMessage = error;
+      });
+      _processTextContent();
+    }
+  }
+
+  // Hàm cắt chữ thành trang (cho sách nhập tay hoặc khi lỗi PDF)
+  void _processTextContent() {
+    String content = widget.book.content;
+    if (content.isEmpty) {
+      content = "⚠️ $_statusMessage \n\n(Nội dung sách trống hoặc không tải được PDF)";
+    }
+
+    int charsPerPage = 500;
+    _textPages.clear();
+    for (int i = 0; i < content.length; i += charsPerPage) {
+      int end = (i + charsPerPage < content.length) ? i + charsPerPage : content.length;
+      _textPages.add(content.substring(i, end).trim());
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _isPdfMode ? Colors.white : const Color(0xFFFFFBF0),
       appBar: AppBar(
-        title: Text(widget.book.title, style: const TextStyle(fontSize: 16)),
-        actions: [
-          IconButton(
-            icon: _isGeneratingAI
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.psychology, color: Colors.orange, size: 30),
-            onPressed: _isGeneratingAI ? null : _startAIReview,
-            tooltip: "AI Ôn tập",
-          )
-        ],
+        title: Text(widget.book.title, style: const TextStyle(fontSize: 16, color: Colors.black)),
+        backgroundColor: _isPdfMode ? Colors.white : const Color(0xFFFFFBF0),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _localFilePath == null
-          ? const Center(child: Text("Lỗi: Không tìm thấy file PDF"))
-          : PDFView(
-        filePath: _localFilePath,
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_statusMessage, textAlign: TextAlign.center),
+          ],
+        ),
+      )
+          : _isPdfMode
+          ? PDFView(
+        filePath: _localPdfPath,
         enableSwipe: true,
         swipeHorizontal: true,
-        autoSpacing: false,
         pageFling: true,
-        onRender: (pages) => setState(() => _totalPages = pages ?? 0),
-        onPageChanged: (page, total) => setState(() => _currentPage = page ?? 0),
-        onError: (error) => print(error.toString()),
-        onPageError: (page, error) => print('$page: ${error.toString()}'),
+        onError: (error) {
+          setState(() {
+            _isLoading = false;
+            _isPdfMode = false;
+            _statusMessage = "File PDF bị lỗi: $error";
+          });
+        },
+      )
+          : PageView.builder(
+        controller: _textPageController,
+        itemCount: _textPages.length,
+        itemBuilder: (context, index) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+            child: SingleChildScrollView(
+              child: Text(
+                _textPages[index],
+                style: const TextStyle(fontSize: 18, height: 1.6, fontFamily: 'Roboto'),
+                textAlign: TextAlign.justify,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
