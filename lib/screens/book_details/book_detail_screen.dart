@@ -175,10 +175,10 @@ class BookDetailScreen extends StatelessWidget {
                                 elevation: 0,
                               ),
                               onPressed: () async {
-                                // 1. SỬA: Dùng 'readingStatus' thay vì 'status'
+                                // 1. SỬA: Đảm bảo dùng 'readingStatus'
                                 if (currentBook.readingStatus == 'wishlist') {
                                   await DatabaseService().updateBook(currentBook.id!, {
-                                    'readingStatus': 'reading' // Cập nhật đúng key
+                                    'readingStatus': 'reading'
                                   });
                                 }
 

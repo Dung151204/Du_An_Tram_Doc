@@ -60,7 +60,7 @@ class DatabaseService {
     });
   }
 
-  // 4. Clone sách (SỬA: status -> readingStatus)
+  // 4. Clone sách
   Future<void> cloneBookToLibrary(BookModel publicBook) async {
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -74,7 +74,7 @@ class DatabaseService {
         'colorValue': publicBook.colorValue ?? publicBook.coverColor?.value,
         'userId': uid,
         'isPublic': false,
-        'readingStatus': 'wishlist', // <--- Dùng đúng tên trường trong BookModel cũ
+        'readingStatus': 'wishlist',
         'currentPage': 0,
         'rating': 0.0,
         'reviewsCount': 0,
@@ -223,7 +223,7 @@ class DatabaseService {
     }
   }
 
-  // 8. Cập nhật thông tin sách
+  // 8. Cập nhật thông tin sách (HÀM NÀY ĐÃ ĐƯỢC THÊM ĐỂ SỬA LỖI)
   Future<void> updateBook(String bookId, Map<String, dynamic> data) async {
     try {
       await _bookRef.doc(bookId).update(data);
