@@ -20,6 +20,7 @@ class BookModel {
   final String readingStatus;
   final String physicalLocation;
   final String lentTo;
+  final DateTime? returnDate; // [QUAN TRỌNG] Thêm trường này để lưu ngày trả
   final String? assetPath;
   final List<String> keyTakeaways;
 
@@ -44,6 +45,7 @@ class BookModel {
     this.readingStatus = 'reading',
     this.physicalLocation = '',
     this.lentTo = '',
+    this.returnDate, // Thêm vào constructor
     this.assetPath,
     this.keyTakeaways = const [],
     this.originalBookId,
@@ -69,6 +71,8 @@ class BookModel {
       'readingStatus': readingStatus,
       'physicalLocation': physicalLocation,
       'lentTo': lentTo,
+      // Lưu ngày trả dưới dạng Timestamp nếu có
+      'returnDate': returnDate != null ? Timestamp.fromDate(returnDate!) : null,
       'assetPath': assetPath,
       'keyTakeaways': keyTakeaways,
       'originalBookId': originalBookId,
@@ -76,7 +80,8 @@ class BookModel {
   }
 
   factory BookModel.fromMap(Map<String, dynamic> map, String documentId) {
-    DateTime parseCreatedAt(dynamic value) {
+    // Thống nhất một hàm xử lý ngày tháng an toàn cho toàn bộ factory
+    DateTime parseDate(dynamic value) {
       if (value is Timestamp) return value.toDate();
       if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
       return DateTime.now();
@@ -94,15 +99,22 @@ class BookModel {
       currentPage: map['currentPage']?.toInt() ?? 0,
       rating: (map['rating'] is int) ? (map['rating'] as int).toDouble() : (map['rating'] ?? 0.0).toDouble(),
       reviewsCount: map['reviewsCount']?.toInt() ?? 0,
-      createdAt: parseCreatedAt(map['createdAt']),
+
+      // Sử dụng hàm parseDate đã thống nhất để tránh lỗi gán đè biến
+      createdAt: parseDate(map['createdAt']),
+
       userId: map['userId'],
       isPublic: map['isPublic'] ?? false,
       readingStatus: map['readingStatus'] ?? 'reading',
       physicalLocation: map['physicalLocation'] ?? '',
       lentTo: map['lentTo'] ?? '',
-      assetPath: map['assetPath'],
+
+      // Xử lý ngày trả sách từ dữ liệu Firebase
+      returnDate: map['returnDate'] != null ? parseDate(map['returnDate']) : null,
+
+      assetPath: map['assetPath'], // Giữ link PDF GitHub
       keyTakeaways: List<String>.from(map['keyTakeaways'] ?? []),
-      originalBookId: map['originalBookId'],
+      originalBookId: map['originalBookId'], // Giữ ID để lọc sách giấy
     );
   }
 }

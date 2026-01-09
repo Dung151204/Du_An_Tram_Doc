@@ -4,7 +4,7 @@ import '../models/book_model.dart';
 
 class AIService {
   // ✅ Đã cập nhật Key mới của bạn
-  static const String _apiKey = 'AIzaSyDAPKQ3GyyHPAvVxY3Ps0nUK_cFqPVcmH0';  //Lên https://aistudio.google.com/u/1/api-keys để lấy key
+  static const String _apiKey = 'AIzaSyCu95Q3Wvj7plgXv8VWNPsu47FKvzj4DKE';  //Lên https://aistudio.google.com/u/1/api-keys để lấy key
 
   // Hàm private để tái sử dụng logic gọi API, tránh trùng lặp code
   Future<List<Map<String, dynamic>>> _callGeminiAPI({
